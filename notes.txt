@@ -1,0 +1,12 @@
+--- This file contains notes from the development process ---
+--- Some are just links to some articles or threads       ---
+
+1. Half-carry flag behavior on 16-bit arithmetic instructions
+   Half-carry flag will be set on 8-bit instructions when there
+   is a carry from bit 3 -> bit 4. However, on 16-bit instructions,
+   it will be set when there is a carry from bit 11 -> bit 12, except
+   ADD SP, n, which behaves same as 8-bit instructions.
+
+2. for f in *\ *; do mv "$f" "${f// /_}"; done
+   Use this to replace whitespaces in directory names with _
+
