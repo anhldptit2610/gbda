@@ -12,6 +12,7 @@ void run(struct gb *gb, int argc, char *argv[])
         return;
     }
 
+    sm83_init(gb);
     while ((opt = getopt(argc, argv, "r:b:")) != -1) {
         switch (opt) {
         case 'r':
@@ -27,9 +28,7 @@ void run(struct gb *gb, int argc, char *argv[])
             abort();
         }
     }
-
-    sm83_init(gb);
-    if (!gb->cart.boot_rom_loaded && gb->cart.cartridge_loaded)
+    if (gb->cart.cartridge_loaded)
         load_state_after_booting(gb);
     while (1) {
         sm83_step(gb);

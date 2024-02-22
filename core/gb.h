@@ -21,11 +21,18 @@ extern "C" {
 #define MSB(n)              (((uint16_t)(n) >> 8) & 0x00ff)
 #define LSB(n)              ((uint16_t)(n) & 0x00ff)
 #define TO_U16(lsb, msb)    (((uint16_t)(msb) << 8) | (uint16_t)(lsb))
-#define BIT(f, n)           (((f) >> (n)) & 0x01)
+#define BIT(f, n)           (((f) >> (n)) & 0x0001)
 #define SET(f, n)           ((f) |= (1U << (n)))
 #define RES(f, n)           ((f) &= ~(1U << (n)))
 
+typedef enum {
+    NORMAL,
+    HALT,
+    STOP
+} gb_mode_t;
+
 struct sm83 {
+    bool ime;
     struct registers {
         union {
             uint16_t af;
@@ -102,20 +109,33 @@ struct memory_access_record {
     access_mode_t mode;
 };
 
-struct gb {
-    uint8_t vram[8 * KiB];
-    uint8_t wram[8 * KiB];
-    uint8_t hram[0x7f];
-    uint8_t eram[8 * KiB];
-    uint8_t oam[160];
-    uint8_t mem[0x10000];
+struct interrupt {
+    uint8_t ie;
+    uint8_t flag;
+};
 
+struct timer {
+    uint16_t div : 14;
+    uint8_t tima;
+    uint8_t tma;
+    union {
+        uint8_t val;
+        struct {
+            uint8_t freq : 2;
+            uint8_t enable : 1;
+            uint8_t unused : 5;
+        };
+    } tac;
+    bool old_edge;
+};
+
+struct gb {
+    uint8_t mem[0x10000];
+    gb_mode_t mode;
     struct sm83 cpu;
     struct cartridge cart;
-
-    struct memory_access_record record[10];
-    int record_index;
-    uint8_t opcode;
+    struct interrupt intr;
+    struct timer tim;
 };
 
 #ifdef __cplusplus

@@ -2,19 +2,26 @@
 
 void sm83_cycle(struct gb *gb)
 {
-    // TODO
+    timer_tick(gb);
 }
 
 void sm83_init(struct gb *gb)
 {
     gb->cpu.regs.pc = 0;
-    gb->record_index = 0;
     memset(gb->mem, 0, 0x10000); 
 }
 
 uint8_t sm83_fetch_byte(struct gb *gb)
 {
-    return bus_read(gb, gb->cpu.regs.pc++);
+    uint8_t ret = 0xff;
+
+    if (gb->mode == HALT) {
+        sm83_cycle(gb);
+        ret = 0x76;
+    } else {
+        ret = bus_read(gb, gb->cpu.regs.pc++);
+    }
+    return ret;
 }
 
 uint16_t sm83_fetch_word(struct gb *gb)
@@ -529,7 +536,7 @@ void ret(struct gb *gb, uint8_t opcode, bool cond)
 void reti(struct gb *gb)
 {
     ret(gb, 0xc9, 1);
-    // TODO: enable IME
+    gb->cpu.ime = true;
 }
 
 void rst_n(struct gb *gb, uint8_t n)
@@ -541,7 +548,11 @@ void rst_n(struct gb *gb, uint8_t n)
 
 void halt(struct gb *gb)
 {
-    // TODO
+    gb->mode = HALT;
+    if (is_interrupt_pending(gb)) {
+        // TODO: halt bug
+        gb->mode = NORMAL;
+    }
 }
 
 void stop(struct gb *gb)
@@ -551,12 +562,13 @@ void stop(struct gb *gb)
 
 void di(struct gb *gb)
 {
-    // TODO
+    gb->cpu.ime = false;
 }
 
 void ei(struct gb *gb)
 {
-    // TODO
+    // TODO: EI's effect is delayed by one instruction
+    gb->cpu.ime = true;
 }
 
 void execute_cb_instructions(struct gb *gb, uint8_t opcode)
@@ -827,7 +839,6 @@ void sm83_step(struct gb *gb)
 {
     uint8_t opcode = sm83_fetch_byte(gb);
 
-    gb->opcode = opcode;
     switch (opcode) {
     case 0x00:                                                          break;
     case 0x01: gb->cpu.regs.bc = sm83_fetch_word(gb);                   break;
@@ -1077,5 +1088,12 @@ void sm83_step(struct gb *gb)
     default:
         fprintf(stderr, "Unknown opcode 0x%02x\n", opcode);
         break;
+    }
+    interrupt_process(gb);
+
+    // blargg's debug output
+    if (gb->mem[0xff02] == 0x81) {
+        printf("%c", gb->mem[0xff01]);
+        gb->mem[0xff02] = 0;
     }
 }
