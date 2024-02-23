@@ -8,6 +8,7 @@ extern "C" {
 #include "bus.h"
 #include "interrupt.h"
 #include "timer.h"
+#include "ppu.h"
 
 void sm83_step(struct gb *gb);
 void sm83_init(struct gb *gb);

@@ -8,6 +8,25 @@ enum BUS_REGION {
     UNUSED = 16,
 };
 
+bool is_interrupt_reg(uint16_t addr)
+{
+    return (addr == INTR_REG_IE || addr == INTR_REG_IF);
+}
+
+bool is_timer_reg(uint16_t addr)
+{
+    return (addr == TIM_REG_DIV || addr == TIM_REG_TAC ||
+            addr == TIM_REG_TIMA || addr == TIM_REG_TMA);
+}
+
+bool is_ppu_reg(uint16_t addr)
+{
+    return (addr == PPU_REG_LCDC || addr == PPU_REG_STAT || addr == PPU_REG_SCY ||
+            addr == PPU_REG_SCX || addr == PPU_REG_LY || addr == PPU_REG_LYC ||
+            addr == PPU_REG_BGP || addr == PPU_REG_OBP0 || addr == PPU_REG_OBP1 ||
+            addr == PPU_REG_WY || addr == PPU_REG_WX);
+}
+
 /* write functions */
 void ram_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
@@ -27,11 +46,12 @@ void io_write(struct gb *gb, uint16_t addr, uint8_t val)
     //       range like an array 
     if (addr == 0xff50 && val == 1 && gb->cart.boot_rom_loaded)
         gb->cart.boot_rom_loaded = false;
-    else if (addr == INTR_REG_IE || addr == INTR_REG_IF)
+    else if (is_interrupt_reg(addr))
         interrupt_write(gb, addr, val);
-    else if (addr == TIM_REG_DIV || addr == TIM_REG_TAC ||
-            addr == TIM_REG_TIMA || addr == TIM_REG_TMA)
+    else if (is_timer_reg(addr))
         timer_write(gb, addr, val);
+    else if (is_ppu_reg(addr))
+        ppu_write(gb, addr, val);
     else
         gb->mem[addr] = val;
 }
@@ -56,15 +76,14 @@ uint8_t oam_read(struct gb *gb, uint16_t addr)
 
 uint8_t io_read(struct gb *gb, uint16_t addr)
 {
-    uint8_t ret;
+    uint8_t ret = 0xff;
 
-    if (addr == INTR_REG_IE || addr == INTR_REG_IF)
+    if (is_interrupt_reg(addr))
         ret = interrupt_read(gb, addr);
-    else if (addr == TIM_REG_DIV || addr == TIM_REG_TAC ||
-            addr == TIM_REG_TIMA || addr == TIM_REG_TMA)
+    else if (is_timer_reg(addr))
         ret = timer_read(gb, addr);
-    else
-        ret = gb->mem[addr];
+    else if (is_ppu_reg(addr))
+        ret = ppu_read(gb, addr);
     return ret;
 }
 
@@ -76,7 +95,8 @@ uint8_t unused_read(struct gb *gb, uint16_t addr)
 uint8_t bus_get_mem_region(uint16_t addr)
 {
     return (((addr <= 0x7fff) << 0) |
-            ((addr >= 0x8000 && addr <= 0xfdff) << 1) |
+            ((addr >= 0x8000 && addr <= 0xdfff) << 1) |
+            ((addr >= 0xe000 && addr <= 0xfdff) << 1) |
             ((addr >= 0xff80 && addr <= 0xfffe) << 1) |
             ((addr >= 0xfe00 && addr <= 0xfe9f) << 2) |
             ((addr >= 0xfea0 && addr <= 0xfeff) << 4) |

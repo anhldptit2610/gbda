@@ -45,9 +45,9 @@ void interrupt_handler(struct gb *gb, uint8_t intr_src)
     gb->intr.flag &= ~intr_src;
     sm83_cycle(gb); 
     sm83_cycle(gb); 
-    sm83_push_word(gb, gb->cpu.regs.pc);
+    sm83_push_word(gb, gb->cpu.pc);
     sm83_cycle(gb);
-    gb->cpu.regs.pc = interrupt_vector[intr_src];
+    gb->cpu.pc = interrupt_vector[intr_src];
 }
 
 void interrupt_request(struct gb *gb, uint8_t intr_src)
