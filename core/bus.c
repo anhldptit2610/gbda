@@ -44,7 +44,7 @@ void io_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
     // TODO: complete this function. Now just treat IO memory 
     //       range like an array 
-    if (addr == 0xff50 && val == 1 && gb->cart.boot_rom_loaded)
+    if (addr == 0xff50 && val == 1)
         gb->cart.boot_rom_loaded = false;
     else if (is_interrupt_reg(addr))
         interrupt_write(gb, addr, val);
@@ -52,8 +52,10 @@ void io_write(struct gb *gb, uint16_t addr, uint8_t val)
         timer_write(gb, addr, val);
     else if (is_ppu_reg(addr))
         ppu_write(gb, addr, val);
-    else
-        gb->mem[addr] = val;
+    else if (addr == DMA_REG_DMA)
+        dma_write(gb, val);
+    // else
+    //     gb->mem[addr] = val;
 }
 
 void unused_write(struct gb *gb, uint16_t addr, uint8_t val)
@@ -84,6 +86,8 @@ uint8_t io_read(struct gb *gb, uint16_t addr)
         ret = timer_read(gb, addr);
     else if (is_ppu_reg(addr))
         ret = ppu_read(gb, addr);
+    else if (addr == DMA_REG_DMA)
+        ret = dma_read(gb);
     return ret;
 }
 
@@ -128,6 +132,11 @@ void bus_wait(struct gb *gb)
 uint8_t bus_read(struct gb *gb, uint16_t addr)
 {
     sm83_cycle(gb);
+    return read_function[bus_get_mem_region(addr)](gb, addr);
+}
+
+uint8_t dma_get_data(struct gb *gb, uint16_t addr)
+{
     return read_function[bus_get_mem_region(addr)](gb, addr);
 }
 

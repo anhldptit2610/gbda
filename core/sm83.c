@@ -10,8 +10,23 @@ void sm83_tick(struct gb *gb)
 
 void sm83_cycle(struct gb *gb)
 {
+    static int i = 0;
+
     timer_tick(gb);
     sm83_tick(gb);
+
+    // deal with DMA
+    if (gb->dma.mode == WAITING) {
+        gb->dma.mode = TRANSFERING;
+    } else if (gb->dma.mode == TRANSFERING) {
+        gb->mem[OAM_DMA_ADDR + i] = dma_get_data(gb, gb->dma.start_addr + i);
+        if (i == 0x9f) {
+            gb->dma.mode = OFF;
+            i = 0;
+        } else {
+            i++;
+        }
+    }
 }
 
 void sm83_init(struct gb *gb)

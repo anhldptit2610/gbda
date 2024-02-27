@@ -9,7 +9,10 @@ extern "C" {
 #include "sm83.h"
 #include "interrupt.h"
 #include "timer.h"
+#include "dma.h"
 
+
+uint8_t dma_get_data(struct gb *gb, uint16_t addr);
 uint8_t bus_read(struct gb *gb, uint16_t addr);
 void bus_write(struct gb *gb, uint16_t addr, uint8_t val);
 void bus_wait(struct gb *gb);

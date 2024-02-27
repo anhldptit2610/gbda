@@ -29,6 +29,7 @@ extern "C" {
 #define BIT(f, n)           (((f) >> (n)) & 0x0001)
 #define SET(f, n)           ((f) |= (1U << (n)))
 #define RES(f, n)           ((f) &= ~(1U << (n)))
+#define IN_RANGE(x, a, b)   ((x) >= (a) && (x) <= (b))
 
 typedef enum {
     NORMAL,
@@ -42,6 +43,12 @@ typedef enum {
     OAM_SCAN,
     DRAWING,
 } ppu_mode_t;
+
+typedef enum {
+    OFF,
+    WAITING,
+    TRANSFERING,
+} dma_mode_t;
 
 struct sm83 {
     bool ime;
@@ -139,6 +146,23 @@ struct timer {
     bool old_edge;
 };
 
+struct oam_entry {
+    uint8_t y;
+    uint8_t x;
+    uint8_t tile_index;
+    union {
+        uint8_t val;
+        struct {
+            uint8_t cgb_palette : 3;
+            uint8_t bank : 1;
+            uint8_t dmg_palette : 1;
+            uint8_t x_flip : 1;
+            uint8_t y_flip : 1;
+            uint8_t priority : 1;
+        };
+    } attributes;
+};
+
 struct ppu {
     union {
         uint8_t val;
@@ -180,6 +204,31 @@ struct ppu {
     ppu_mode_t mode;
     uint32_t frame_buffer[SCREEN_HEIGHT * SCREEN_WIDTH];
     bool frame_ready;
+    struct oam_entry oam_entry[10];
+    uint8_t oam_entry_cnt : 4;
+    uint8_t sprite_cnt : 4;
+    bool stat_intr_line;
+    union {
+        uint8_t val;
+        struct {
+            uint8_t ppu_mode : 2;
+            uint8_t lyc_equal_ly : 1;
+            uint8_t mode0 : 1;
+            uint8_t mode1 : 1;
+            uint8_t mode2 : 1;
+            uint8_t lyc_int : 1;
+            uint8_t unused : 1;
+        };
+    } stat_intr_src;
+    bool window_in_frame;
+    int window_line_cnt;
+    bool draw_window_this_line;
+};
+
+struct dma {
+    dma_mode_t mode;
+    uint16_t reg;
+    uint16_t start_addr;
 };
 
 struct gb {
@@ -190,6 +239,7 @@ struct gb {
     struct interrupt intr;
     struct timer tim;
     struct ppu ppu;
+    struct dma dma;
 };
 
 #ifdef __cplusplus

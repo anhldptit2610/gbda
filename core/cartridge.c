@@ -110,6 +110,17 @@ void load_state_after_booting(struct gb *gb)
     gb->ppu.wx = 0x00;
     gb->ppu.ticks = 0;
     gb->ppu.mode = OAM_SCAN;
-    memset(gb->ppu.frame_buffer, COLOR_WHITE, SCREEN_WIDTH * SCREEN_HEIGHT);
+    memset(gb->ppu.frame_buffer, COLOR_WHITE, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));
     gb->ppu.frame_ready = false;
+    gb->ppu.oam_entry_cnt = 0;
+    gb->ppu.sprite_cnt = 0;
+    gb->ppu.stat_intr_line = false;
+    gb->ppu.stat_intr_src.val = 0;
+    gb->ppu.window_in_frame = false;
+    gb->ppu.window_line_cnt = 0;
+    gb->ppu.draw_window_this_line = false;
+
+    // dma
+    gb->dma.mode = OFF;
+    gb->dma.reg = 0xff;
 }
