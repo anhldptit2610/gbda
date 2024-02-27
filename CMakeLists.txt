@@ -7,4 +7,3 @@ add_compile_options(-Wall -fms-extensions -O3)
 
 add_subdirectory(core)
 add_subdirectory(desktop)
-add_subdirectory(thirdparty)
