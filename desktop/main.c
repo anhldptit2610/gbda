@@ -19,8 +19,9 @@ void gb_init(struct gb *gb, int argc, char *argv[])
         return;
     }
 
+    gb->screen_scaler = 0;
     sm83_init(gb);
-    while ((opt = getopt(argc, argv, "r:b:")) != -1) {
+    while ((opt = getopt(argc, argv, "r:b:s:")) != -1) {
         switch (opt) {
         case 'r':
             gb->cart.cartridge_loaded = true;
@@ -29,6 +30,9 @@ void gb_init(struct gb *gb, int argc, char *argv[])
         case 'b':
             gb->cart.boot_rom_loaded = true;
             cartridge_load(gb, NULL, optarg);
+            break;
+        case 's':
+            gb->screen_scaler = atoi(optarg);
             break;
         case '?':
         default:
@@ -49,6 +53,12 @@ void gb_init(struct gb *gb, int argc, char *argv[])
 
 int main(int argc, char *argv[])
 {
+    struct gb gb;
+    bool done = false;
+
+    // setup gbda
+    gb_init(&gb, argc, argv);
+
     // setup SDL
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
         printf("Error: %s\n", SDL_GetError());
@@ -60,10 +70,10 @@ int main(int argc, char *argv[])
     SDL_SetHint(SDL_HINT_IME_SHOW_UI, "1");
 #endif
 
-    // create window with SDL_Renderer graphics context
     SDL_WindowFlags window_flags = (SDL_WindowFlags)(SDL_WINDOW_RESIZABLE | SDL_WINDOW_ALLOW_HIGHDPI);
     SDL_Window *window = SDL_CreateWindow("mgba", 
-                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH * 3, SCREEN_HEIGHT * 3, window_flags);
+                            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED, SCREEN_WIDTH * gb.screen_scaler, 
+                            SCREEN_HEIGHT * gb.screen_scaler, window_flags);
     if (window == NULL) {
         printf("Error: SDL_CreateWindow(): %s\n", SDL_GetError());
         return -1;
@@ -73,20 +83,12 @@ int main(int argc, char *argv[])
         SDL_Log("Error creating SDL_Renderer!");
         return -1;
     }
-
-    // create a texture
     SDL_Texture *texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, 
                                                 SCREEN_WIDTH, SCREEN_HEIGHT);
     if (texture == NULL) {
         SDL_Log("Error creating SDL texture!");
         return -1;
     }
-
-    struct gb gb;
-    bool done = false;
-
-    // setup gbda
-    gb_init(&gb, argc, argv);
 
     while (!done) {
         SDL_Event event;

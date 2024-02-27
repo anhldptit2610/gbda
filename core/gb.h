@@ -240,6 +240,7 @@ struct gb {
     struct timer tim;
     struct ppu ppu;
     struct dma dma;
+    int screen_scaler;
 };
 
 #ifdef __cplusplus
