@@ -231,6 +231,26 @@ struct dma {
     uint16_t start_addr;
 };
 
+struct joypad {
+    union {
+        uint8_t val;
+        struct {
+            uint8_t keys : 4;
+            uint8_t select_dpad : 1;
+            uint8_t select_button : 1;
+            uint8_t unused : 2;
+        };
+    } joyp;
+    bool a;
+    bool b;
+    bool select;
+    bool start;
+    bool right;
+    bool left;
+    bool up;
+    bool down;
+};
+
 struct gb {
     uint8_t mem[0x10000];
     gb_mode_t mode;
@@ -240,6 +260,7 @@ struct gb {
     struct timer tim;
     struct ppu ppu;
     struct dma dma;
+    struct joypad joypad;
     int screen_scaler;
 };
 

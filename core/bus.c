@@ -54,6 +54,8 @@ void io_write(struct gb *gb, uint16_t addr, uint8_t val)
         ppu_write(gb, addr, val);
     else if (addr == DMA_REG_DMA)
         dma_write(gb, val);
+    else if (addr == JOYPAD_REG_JOYP)
+        joypad_write(gb, val);
     // else
     //     gb->mem[addr] = val;
 }
@@ -88,6 +90,8 @@ uint8_t io_read(struct gb *gb, uint16_t addr)
         ret = ppu_read(gb, addr);
     else if (addr == DMA_REG_DMA)
         ret = dma_read(gb);
+    else if (addr == JOYPAD_REG_JOYP)
+        ret = joypad_read(gb);
     return ret;
 }
 

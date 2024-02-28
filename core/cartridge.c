@@ -123,4 +123,15 @@ void load_state_after_booting(struct gb *gb)
     // dma
     gb->dma.mode = OFF;
     gb->dma.reg = 0xff;
+
+    // joypad
+    gb->joypad.a = 1;
+    gb->joypad.b = 1;
+    gb->joypad.select = 1;
+    gb->joypad.start = 1;
+    gb->joypad.up = 1;
+    gb->joypad.down = 1;
+    gb->joypad.left = 1;
+    gb->joypad.right = 1;
+    gb->joypad.joyp.val = 0xcf;
 }
