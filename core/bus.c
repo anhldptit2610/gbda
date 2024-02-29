@@ -65,9 +65,7 @@ void unused_write(struct gb *gb, uint16_t addr, uint8_t val)
 
 void io_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
-    if (addr == 0xff50 && val == 1)
-        gb->cart.boot_rom_loaded = false;
-    else if (is_interrupt_reg(addr))
+    if (is_interrupt_reg(addr))
         interrupt_write(gb, addr, val);
     else if (is_timer_reg(addr))
         timer_write(gb, addr, val);

@@ -110,8 +110,6 @@ struct cartridge {
         int ram_size;
         // TODO: fill in other missing infos
     } infos;
-    uint8_t boot_code[0xff];
-    bool boot_rom_loaded;
 };
 
 typedef enum ACCESS_MODE {

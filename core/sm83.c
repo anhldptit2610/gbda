@@ -33,7 +33,6 @@ void sm83_init(struct gb *gb)
 {
     gb->cpu.pc = 0;
     gb->cart.cartridge_loaded = false;
-    gb->cart.boot_rom_loaded = false;
 }
 
 uint8_t sm83_fetch_byte(struct gb *gb)

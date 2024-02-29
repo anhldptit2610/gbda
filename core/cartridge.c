@@ -1,34 +1,11 @@
 #include "cartridge.h"
 
-void cartridge_load(struct gb *gb, char *cartridge_path, char *boot_rom_path)
+void cartridge_load(struct gb *gb, char *cartridge_path)
 {
     FILE *fp = NULL;
     long file_size;
 
-    if (boot_rom_path != NULL) {
-        fp = fopen(boot_rom_path, "r");
-        if (!fp) {
-            printf("The boot rom path is wrong\n");
-            goto file_not_found;
-        }
-        if (fread(gb->cart.boot_code, 1, 0xff, fp) != 0xff)
-            goto read_failed;
-        gb->ppu.mode = OAM_SCAN;
-        gb->ppu.lcdc.val = 0x00;
-        gb->ppu.stat.val = 0x00;
-        gb->ppu.scy = 0x00;
-        gb->ppu.scx = 0x00;
-        gb->ppu.ly = 0x00;
-        gb->ppu.lyc = 0x00;
-        gb->ppu.bgp = 0x00;
-        gb->ppu.wy = 0x00;
-        gb->ppu.wx = 0x00;
-        gb->ppu.ticks = 0;
-    }
-
     if (cartridge_path != NULL) {
-        if (boot_rom_path != NULL)
-            fclose(fp);
         fp = fopen(cartridge_path, "r");
         if (!fp) {
             printf("The cartridge path is wrong\n");
@@ -61,9 +38,7 @@ uint8_t rom_read(struct gb *gb, uint16_t addr)
 {
     uint8_t ret = 0xff;
 
-    if (addr <= 0xff && gb->cart.boot_rom_loaded)
-        ret = gb->cart.boot_code[addr];
-    else if (gb->cart.cartridge_loaded)
+    if (gb->cart.cartridge_loaded)
         ret = gb->cart.rom[addr];
     return ret;
 }
@@ -75,7 +50,6 @@ void load_state_after_booting(struct gb *gb)
     gb->mode = NORMAL;
 
     // cartridge
-    gb->cart.boot_rom_loaded = false;
 
     // cpu
     gb->cpu.pc = 0x100;

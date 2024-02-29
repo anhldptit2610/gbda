@@ -21,15 +21,11 @@ void gb_init(struct gb *gb, int argc, char *argv[])
 
     gb->screen_scaler = 0;
     sm83_init(gb);
-    while ((opt = getopt(argc, argv, "r:b:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "r:s:")) != -1) {
         switch (opt) {
         case 'r':
+            cartridge_load(gb, optarg);
             gb->cart.cartridge_loaded = true;
-            cartridge_load(gb, optarg, NULL);
-            break;
-        case 'b':
-            gb->cart.boot_rom_loaded = true;
-            cartridge_load(gb, NULL, optarg);
             break;
         case 's':
             gb->screen_scaler = atoi(optarg);
@@ -39,17 +35,9 @@ void gb_init(struct gb *gb, int argc, char *argv[])
             abort();
         }
     }
-    if (gb->cart.cartridge_loaded && !gb->cart.boot_rom_loaded)
+    if (gb->cart.cartridge_loaded)
         load_state_after_booting(gb);
 }
-
-// int main(int argc, char *argv[])
-// {
-//     struct gb gb;
-
-//     run(&gb, argc, argv);
-//     return 0;
-// }
 
 int main(int argc, char *argv[])
 {
