@@ -29,10 +29,10 @@ void interrupt_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
     switch (addr) {
     case INTR_REG_IE:
-        gb->intr.ie = val;
+        gb->intr.ie = val | 0xe0;
         break;
     case INTR_REG_IF:
-        gb->intr.flag = val;
+        gb->intr.flag = val | 0xe0;
         break;
     default:
         break;
@@ -57,21 +57,21 @@ void interrupt_request(struct gb *gb, uint8_t intr_src)
 
 bool is_interrupt_pending(struct gb *gb)
 {
-    return (gb->intr.ie & gb->intr.flag) ? 1 : 0;
+    return (gb->intr.ie & gb->intr.flag & 0x1f) ? 1 : 0;
 }
 
 void interrupt_process(struct gb *gb)
 {
-    if (gb->cpu.ime && (gb->intr.ie & gb->intr.flag) != 0) {
-        if ((gb->intr.ie & gb->intr.flag) == INTR_SRC_VBLANK)
+    if (gb->cpu.ime && is_interrupt_pending(gb)) {
+        if ((gb->intr.ie & gb->intr.flag & INTR_SRC_VBLANK) == INTR_SRC_VBLANK)
             interrupt_handler(gb, INTR_SRC_VBLANK);
-        else if ((gb->intr.ie & gb->intr.flag) == INTR_SRC_LCD)
+        else if ((gb->intr.ie & gb->intr.flag & INTR_SRC_LCD) == INTR_SRC_LCD)
             interrupt_handler(gb, INTR_SRC_LCD);
-        else if ((gb->intr.ie & gb->intr.flag) == INTR_SRC_TIMER)
+        else if ((gb->intr.ie & gb->intr.flag & INTR_SRC_TIMER) == INTR_SRC_TIMER)
             interrupt_handler(gb, INTR_SRC_TIMER);
-        else if ((gb->intr.ie & gb->intr.flag) == INTR_SRC_SERIAL)
+        else if ((gb->intr.ie & gb->intr.flag & INTR_SRC_SERIAL) == INTR_SRC_SERIAL)
             interrupt_handler(gb, INTR_SRC_SERIAL);
-        else if ((gb->intr.ie & gb->intr.flag) == INTR_SRC_JOYPAD)
+        else if ((gb->intr.ie & gb->intr.flag & INTR_SRC_JOYPAD) == INTR_SRC_JOYPAD)
             interrupt_handler(gb, INTR_SRC_JOYPAD);
     }
 }

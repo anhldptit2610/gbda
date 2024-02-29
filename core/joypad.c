@@ -15,7 +15,7 @@ uint8_t joypad_read(struct gb *gb)
 
 void joypad_write(struct gb *gb, uint8_t val)
 {
-    gb->joypad.joyp.val = val | (gb->joypad.joyp.val & 0xcf);
+    gb->joypad.joyp.val = val | (gb->joypad.joyp.val & 0xcf) | 0xc0;
 }
 
 void joypad_press_button(struct gb *gb, joypad_keys_t key)

@@ -39,6 +39,8 @@ void vram_write(struct gb *gb, uint16_t addr, uint8_t val)
 
 void exram_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
+    if (!gb->mbc.mbc1.ram_enable)
+        return;
     gb->extern_ram[addr - 0xa000] = val;
 }
 
@@ -90,7 +92,11 @@ uint8_t vram_read(struct gb *gb, uint16_t addr)
 
 uint8_t exram_read(struct gb *gb, uint16_t addr)
 {
-    return gb->extern_ram[addr - 0xa000];
+    uint8_t ret = gb->extern_ram[addr - 0xa000];
+
+    if (!gb->mbc.mbc1.ram_enable)
+        ret = 0xff;
+    return ret;
 }
 
 uint8_t wram_read(struct gb *gb, uint16_t addr)

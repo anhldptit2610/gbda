@@ -42,6 +42,9 @@ uint8_t sm83_fetch_byte(struct gb *gb)
     if (gb->mode == HALT) {
         sm83_cycle(gb);
         ret = 0x76;
+    // } else if (gb->mode == HALT_BUG) {
+    //     ret = bus_read(gb, gb->cpu.pc);
+    //     gb->mode = NORMAL;
     } else {
         ret = bus_read(gb, gb->cpu.pc++);
     }
@@ -97,25 +100,21 @@ static inline void ld_indirect_hl_n(struct gb *gb, uint8_t n)
 
 static inline void ldh_indirect_c_a(struct gb *gb)
 {
-    // TODO
     bus_write(gb, 0xff00 + gb->cpu.bc.c, gb->cpu.af.a);
 }
 
 static inline void ldh_a_indirect_c(struct gb *gb)
 {
-    // TODO
     gb->cpu.af.a = bus_read(gb, 0xff00 + gb->cpu.bc.c);
 }
 
 static inline void ldh_indirect_n_a(struct gb *gb, uint8_t n)
 {
-    // TODO
     bus_write(gb, 0xff00 + n, gb->cpu.af.a);
 }
 
 static inline void ldh_a_indirect_n(struct gb *gb, uint8_t n)
 {
-    // TODO
     gb->cpu.af.a = bus_read(gb, 0xff00 + n);
 }
 
@@ -575,7 +574,7 @@ void halt(struct gb *gb)
     gb->mode = HALT;
     if (is_interrupt_pending(gb)) {
         // TODO: halt bug
-        gb->mode = NORMAL;
+        gb->mode = (!gb->cpu.ime) ? HALT_BUG : NORMAL;
     }
 }
 
@@ -863,6 +862,10 @@ void sm83_step(struct gb *gb)
 {
     uint8_t opcode = sm83_fetch_byte(gb);
 
+    if (gb->mode == HALT_BUG) {
+        gb->cpu.pc--;
+        gb->mode = NORMAL;
+    }
     switch (opcode) {
     case 0x00:                                                          break;
     case 0x01: gb->cpu.bc.val = sm83_fetch_word(gb);                   break;
@@ -1114,10 +1117,4 @@ void sm83_step(struct gb *gb)
         break;
     }
     interrupt_process(gb);
-
-    // blargg's debug output
-    if (gb->mem[0xff02] == 0x81) {
-        printf("%c", gb->mem[0xff01]);
-        gb->mem[0xff02] = 0;
-    }
 }

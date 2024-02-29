@@ -198,13 +198,17 @@ void ppu_draw_scanline(struct gb *gb)
             y_pos = (gb->ppu.ly - (gb->ppu.oam_entry[j].y - 16)) % 16;
             offset_x = (gb->ppu.oam_entry[j].attributes.x_flip) ? x_pos : 7 - x_pos;
             offset_y = (!gb->ppu.oam_entry[j].attributes.y_flip) ? y_pos : sprite_height - 1 - (y_pos);
-            if (sprite_height == 16 && y_pos >= 8)
+            if (sprite_height == 16 && y_pos >= 8)  // bottom
                 tile_index = (gb->ppu.oam_entry[j].attributes.y_flip) ?  tile_index & 0xfe : tile_index | 0x01;
-            else if (sprite_height == 16 && y_pos <= 7)
+            else if (sprite_height == 16 && y_pos <= 7) // top
                 tile_index = (gb->ppu.oam_entry[j].attributes.y_flip) ?  tile_index | 0x01 : tile_index & 0xfe;
             tile_addr = 0x8000 + 16 * (uint8_t)tile_index;
-            color_id_low = (read_vram(gb, tile_addr + (offset_y) * 2) >> (7 - (offset_x))) & 0x01;
-            color_id_high = (read_vram(gb, tile_addr + (offset_y) * 2 + 1) >> (7 - (offset_x))) & 0x01;
+            // TODO
+            uint8_t test = (!gb->ppu.oam_entry[j].attributes.y_flip) ? (y_pos % 8) : 7 - (y_pos % 8);
+            // color_id_low = (read_vram(gb, tile_addr + (offset_y) * 2) >> (offset_x)) & 0x01;
+            // color_id_high = (read_vram(gb, tile_addr + (offset_y) * 2 + 1) >> (offset_x)) & 0x01;
+            color_id_low = (read_vram(gb, tile_addr + (test) * 2) >> (offset_x)) & 0x01;
+            color_id_high = (read_vram(gb, tile_addr + (test) * 2 + 1) >> (offset_x)) & 0x01;
             sprite_color_id = color_id_low | (color_id_high << 1);
             if (((ptype == BG_WIN) && (!sprite_color_id || (sprite_color_id > 0 && gb->ppu.oam_entry[j].attributes.priority && color_id > 0))) ||
                 ((ptype == SPRITE) && (color_id > 0 && !sprite_color_id)))

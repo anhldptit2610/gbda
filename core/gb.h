@@ -34,6 +34,7 @@ extern "C" {
 typedef enum {
     NORMAL,
     HALT,
+    HALT_BUG,
     STOP
 } gb_mode_t;
 
@@ -108,6 +109,7 @@ struct cartridge {
         uint8_t type;
         int rom_size;
         int ram_size;
+        int bank_size;
         // TODO: fill in other missing infos
     } infos;
 };
@@ -249,10 +251,18 @@ struct joypad {
     bool down;
 };
 
+struct mbc {
+    struct {
+        bool ram_enable;
+        uint8_t rom_bank_number : 5;
+        uint8_t ram_bank_number : 2;
+        bool banking_mode;
+    } mbc1;
+};
+
 struct gb {
-    uint8_t mem[0x10000];
     uint8_t vram[0x2000];
-    uint8_t extern_ram[0x2000];
+    uint8_t extern_ram[8 * KiB];
     uint8_t wram[0x2000];
     uint8_t echo_ram[0x1e00];
     uint8_t oam[0xa0];
@@ -266,6 +276,7 @@ struct gb {
     struct ppu ppu;
     struct dma dma;
     struct joypad joypad;
+    struct mbc mbc;
     int screen_scaler;
 };
 

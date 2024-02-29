@@ -35,8 +35,10 @@ void gb_init(struct gb *gb, int argc, char *argv[])
             abort();
         }
     }
-    if (gb->cart.cartridge_loaded)
+    if (gb->cart.cartridge_loaded) {
         load_state_after_booting(gb);
+        cartridge_get_infos(gb);
+    }
 }
 
 int main(int argc, char *argv[])

@@ -1,5 +1,79 @@
 #include "cartridge.h"
 
+static char *cart_types[] = {
+	[0x00] = "ROM ONLY",
+	[0x01] = "MBC1",
+	[0x02] = "MBC1+RAM",
+	[0x03] = "MBC1+RAM+BATTERY",
+	[0x05] = "MBC2",
+	[0x06] = "MBC2+BATTERY",
+	[0x08] = "ROM+RAM",
+	[0x09] = "ROM+RAM+BATTERY",
+	[0x0B] = "MMM01",
+	[0x0C] = "MMM01+RAM",
+	[0x0D] = "MMM01+RAM+BATTERY",
+	[0x0F] = "MBC3+TIMER+BATTERY",
+	[0x10] = "MBC3+TIMER+RAM+BATTERY",
+	[0x11] = "MBC3",
+	[0x12] = "MBC3+RAM",
+	[0x13] = "MBC3+RAM+BATTERY",
+	[0x15] = "MBC4",
+	[0x16] = "MBC4+RAM",
+	[0x17] = "MBC4+RAM+BATTERY",
+	[0x19] = "MBC5",
+	[0x1A] = "MBC5+RAM",
+	[0x1B] = "MBC5+RAM+BATTERY",
+	[0x1C] = "MBC5+RUMBLE",
+	[0x1D] = "MBC5+RUMBLE+RAM",
+	[0x1E] = "MBC5+RUMBLE+RAM+BATTERY",
+	[0xFC] = "POCKET CAMERA",
+	[0xFD] = "BANDAI TAMA5",
+	[0xFE] = "HuC3",
+	[0xFF] = "HuC1+RAM+BATTERY",
+};
+
+static char *rom_size[] = {
+    "32 KiB",
+    "64 KiB",
+    "128 KiB",
+    "256 KiB",
+    "512 KiB",
+    "1 MiB",
+    "2 MiB",
+    "4 MiB",
+    "8 MiB",
+    "1.1 MiB",
+    "1.2 MiB",
+    "1.5 MiB",
+};
+
+static char *sram_size[] = {
+    "0",
+    "0",
+    "8 KiB",
+    "32 KiB",
+    "128 KiB",
+    "64 KiB",
+};
+
+static int sram_size_num[] = {
+    0, 0, 8 * KiB, 32 * KiB, 128 * KiB, 64 * KiB
+};
+
+uint8_t (*read_func[])(struct gb *gb, uint16_t addr) = {
+    [NO_MBC] = no_mbc_read,
+    [MBC1] = mbc1_read,
+    [MBC1_RAM] = mbc1_read,
+    [MBC1_RAM_BATTERY] = mbc1_read,
+};
+
+void (*write_func[])(struct gb *gb, uint16_t addr, uint8_t val) = {
+    [NO_MBC] = no_mbc_write,
+    [MBC1] = mbc1_write,
+    [MBC1_RAM] = mbc1_write,
+    [MBC1_RAM_BATTERY] = mbc1_write,
+};
+
 void cartridge_load(struct gb *gb, char *cartridge_path)
 {
     FILE *fp = NULL;
@@ -28,18 +102,43 @@ read_failed:
     exit(EXIT_FAILURE);
 }
 
+void cartridge_get_infos(struct gb *gb)
+{
+    if (!gb->cart.cartridge_loaded) {
+        fprintf(stderr, "Error: No cartridge found.\n");
+        return;
+    }
+    for (uint16_t i = 0x0134, j = 0; i <= 0x0143; i++) {
+        if (gb->cart.rom[i] != 0x00)
+            gb->cart.infos.name[j++] = gb->cart.rom[i];
+        else {
+            gb->cart.infos.name[j] = '\0';
+            break;
+        }
+    }
+    gb->cart.infos.type = gb->cart.rom[0x0147];
+    gb->cart.infos.rom_size = 32 * KiB * (1 << gb->cart.rom[0x0148]);
+    gb->cart.infos.ram_size = sram_size_num[gb->cart.rom[0x0149]];
+    gb->cart.infos.bank_size = gb->cart.infos.rom_size / (16 * KiB);
+    
+    // print cartridge infos
+    printf("name: %s\n", gb->cart.infos.name);
+    printf("mbc type: %s\n", cart_types[gb->cart.infos.type]);
+    printf("ROM size: %s\n", rom_size[gb->cart.rom[0x0148]]);
+    printf("RAM size: %s\n", sram_size[gb->cart.rom[0x0149]]);
+    printf("bank size: %d\n", gb->cart.infos.bank_size);
+}
 
 void rom_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
-
+    write_func[gb->cart.infos.type](gb, addr, val);
 }
 
 uint8_t rom_read(struct gb *gb, uint16_t addr)
 {
     uint8_t ret = 0xff;
 
-    if (gb->cart.cartridge_loaded)
-        ret = gb->cart.rom[addr];
+    ret = (gb->cart.infos.bank_size == 2) ? no_mbc_read(gb, addr) : read_func[gb->cart.infos.type](gb, addr);
     return ret;
 }
 
@@ -108,4 +207,11 @@ void load_state_after_booting(struct gb *gb)
     gb->joypad.left = 1;
     gb->joypad.right = 1;
     gb->joypad.joyp.val = 0xcf;
+
+    // mbcs
+    gb->mbc.mbc1.ram_enable = 0;
+    gb->mbc.mbc1.banking_mode = 0;
+    gb->mbc.mbc1.rom_bank_number = 0;
+    gb->mbc.mbc1.ram_bank_number = 0;
+
 }

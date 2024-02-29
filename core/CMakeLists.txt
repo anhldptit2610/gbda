@@ -5,6 +5,7 @@ add_library(gbdacore    sm83.c
                         timer.c
                         ppu.c
                         dma.c
-                        joypad.c)
+                        joypad.c
+                        mbc.c)
 
 target_include_directories(gbdacore PUBLIC ${CMAKE_SOURCE_DIR}/core/)
