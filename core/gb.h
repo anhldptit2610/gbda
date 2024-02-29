@@ -253,6 +253,13 @@ struct joypad {
 
 struct gb {
     uint8_t mem[0x10000];
+    uint8_t vram[0x2000];
+    uint8_t extern_ram[0x2000];
+    uint8_t wram[0x2000];
+    uint8_t echo_ram[0x1e00];
+    uint8_t oam[0xa0];
+    uint8_t unused[0x60];
+    uint8_t hram[0x7f];
     gb_mode_t mode;
     struct sm83 cpu;
     struct cartridge cart;

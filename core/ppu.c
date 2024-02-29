@@ -34,6 +34,11 @@ uint32_t get_color_from_palette(struct gb *gb, palette_t palette, uint8_t color_
     return gb_palette[(*tmp >> (color_id * 2)) & 0x03];
 }
 
+uint8_t read_vram(struct gb *gb, uint16_t addr)
+{
+    return gb->vram[addr - 0x8000];
+}
+
 uint8_t ppu_read(struct gb *gb, uint16_t addr)
 {
     uint8_t ret = 0xff;
@@ -135,12 +140,12 @@ void ppu_oam_scan(struct gb *gb)
     if (gb->ppu.ticks == 80) {
         uint8_t sprite_height = (gb->ppu.lcdc.obj_size) ? 16 : 8;
         for (int i = 0; i < 40; i++) {
-            if (gb->mem[OAM_DMA_ADDR + i * 4 + 1] > 0 && gb->ppu.oam_entry_cnt < 10 &&
-                IN_RANGE(gb->ppu.ly, gb->mem[OAM_DMA_ADDR + i * 4] - 16, gb->mem[OAM_DMA_ADDR + i * 4] - 17 + sprite_height)) {
-                gb->ppu.oam_entry[gb->ppu.oam_entry_cnt].y = gb->mem[OAM_DMA_ADDR + i * 4];
-                gb->ppu.oam_entry[gb->ppu.oam_entry_cnt].x = gb->mem[OAM_DMA_ADDR + i * 4 + 1];
-                gb->ppu.oam_entry[gb->ppu.oam_entry_cnt].tile_index = gb->mem[OAM_DMA_ADDR + i * 4 + 2];
-                gb->ppu.oam_entry[gb->ppu.oam_entry_cnt].attributes.val = gb->mem[OAM_DMA_ADDR + i * 4 + 3];
+            if (gb->oam[i * 4 + 1] > 0 && gb->ppu.oam_entry_cnt < 10 &&
+                IN_RANGE(gb->ppu.ly, gb->oam[i * 4] - 16, gb->oam[i * 4] - 17 + sprite_height)) {
+                gb->ppu.oam_entry[gb->ppu.oam_entry_cnt].y = gb->oam[i * 4];
+                gb->ppu.oam_entry[gb->ppu.oam_entry_cnt].x = gb->oam[i * 4 + 1];
+                gb->ppu.oam_entry[gb->ppu.oam_entry_cnt].tile_index = gb->oam[i * 4 + 2];
+                gb->ppu.oam_entry[gb->ppu.oam_entry_cnt].attributes.val = gb->oam[i * 4 + 3];
                 gb->ppu.oam_entry_cnt++;
             }
             if (gb->ppu.oam_entry_cnt == 10)
@@ -169,15 +174,15 @@ void ppu_draw_scanline(struct gb *gb)
         offset_x = (!is_window_pixel) ? (i + gb->ppu.scx) & 0xff : window_offset;
         offset_y = (!is_window_pixel) ? (gb->ppu.ly + gb->ppu.scy) & 0xff : gb->ppu.window_line_cnt;
         ptype = BG_WIN;
-        tile_index = gb->mem[tile_map_addr + ((offset_x / 8 + 32 * (offset_y / 8)) & 0x3ff)];
+        tile_index = read_vram(gb, tile_map_addr + ((offset_x / 8 + 32 * (offset_y / 8)) & 0x3ff));
 
         // get tile data
         tile_addr = (gb->ppu.lcdc.bg_win_tiles)
                     ? 0x8000 + 16 * (uint8_t)tile_index : 0x9000 + 16 * (int8_t)tile_index;
         if (is_window_pixel)
             offset_x = window_offset++;
-        color_id_low = (gb->mem[tile_addr + (offset_y % 8) * 2]  >> (7 - (offset_x % 8))) & 0x01;
-        color_id_high = (gb->mem[tile_addr + (offset_y % 8) * 2 + 1]  >> (7 - (offset_x % 8))) & 0x01;
+        color_id_low = (read_vram(gb, tile_addr + (offset_y % 8) * 2) >> (7 - (offset_x % 8))) & 0x01;
+        color_id_high = (read_vram(gb, tile_addr + (offset_y % 8) * 2 + 1) >> (7 - (offset_x % 8))) & 0x01;
         color_id = color_id_low | (color_id_high << 1);
         gb->ppu.frame_buffer[i + gb->ppu.ly * SCREEN_WIDTH] = (gb->ppu.lcdc.bg_win_enable) 
                                                                     ? get_color_from_palette(gb, BGP, color_id) : gb_palette[0];
@@ -198,8 +203,8 @@ void ppu_draw_scanline(struct gb *gb)
             else if (sprite_height == 16 && y_pos <= 7)
                 tile_index = (gb->ppu.oam_entry[j].attributes.y_flip) ?  tile_index | 0x01 : tile_index & 0xfe;
             tile_addr = 0x8000 + 16 * (uint8_t)tile_index;
-            color_id_low = (gb->mem[tile_addr + (offset_y) * 2] >> (offset_x)) & 0x01;
-            color_id_high = (gb->mem[tile_addr + (offset_y) * 2 + 1] >> (offset_x)) & 0x01;
+            color_id_low = (read_vram(gb, tile_addr + (offset_y) * 2) >> (7 - (offset_x))) & 0x01;
+            color_id_high = (read_vram(gb, tile_addr + (offset_y) * 2 + 1) >> (7 - (offset_x))) & 0x01;
             sprite_color_id = color_id_low | (color_id_high << 1);
             if (((ptype == BG_WIN) && (!sprite_color_id || (sprite_color_id > 0 && gb->ppu.oam_entry[j].attributes.priority && color_id > 0))) ||
                 ((ptype == SPRITE) && (color_id > 0 && !sprite_color_id)))

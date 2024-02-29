@@ -19,7 +19,7 @@ void sm83_cycle(struct gb *gb)
     if (gb->dma.mode == WAITING) {
         gb->dma.mode = TRANSFERING;
     } else if (gb->dma.mode == TRANSFERING) {
-        gb->mem[OAM_DMA_ADDR + i] = dma_get_data(gb, gb->dma.start_addr + i);
+        gb->oam[i] = dma_get_data(gb, gb->dma.start_addr + i);
         if (i == 0x9f) {
             gb->dma.mode = OFF;
             i = 0;
@@ -32,7 +32,6 @@ void sm83_cycle(struct gb *gb)
 void sm83_init(struct gb *gb)
 {
     gb->cpu.pc = 0;
-    memset(gb->mem, 0xff, 0x10000); 
     gb->cart.cartridge_loaded = false;
     gb->cart.boot_rom_loaded = false;
 }
