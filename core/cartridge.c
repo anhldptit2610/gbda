@@ -74,6 +74,38 @@ void (*write_func[])(struct gb *gb, uint16_t addr, uint8_t val) = {
     [MBC1_RAM_BATTERY] = mbc1_write,
 };
 
+void cartridge_get_infos(struct gb *gb)
+{
+    if (!gb->cart.cartridge_loaded) {
+        fprintf(stderr, "Error: No cartridge found.\n");
+        return;
+    }
+    for (uint16_t i = 0x0134, j = 0; i <= 0x0143; i++) {
+        if (gb->cart.rom[i] != 0x00)
+            gb->cart.infos.name[j++] = gb->cart.rom[i];
+        else {
+            gb->cart.infos.name[j] = '\0';
+            break;
+        }
+    }
+    gb->cart.infos.type = gb->cart.rom[0x0147];
+    if (gb->cart.infos.type == MBC1_RAM_BATTERY)
+        gb->mbc.mbc1.has_battery = true;
+    gb->cart.infos.rom_size = 32 * KiB * (1 << gb->cart.rom[0x0148]);
+    gb->cart.infos.ram_size = sram_size_num[gb->cart.rom[0x0149]];
+    gb->cart.infos.bank_size = gb->cart.infos.rom_size / (16 * KiB);
+}    
+
+void cartridge_print_info(struct gb *gb)
+{
+    // print cartridge infos
+    printf("name: %s\n", gb->cart.infos.name);
+    printf("mbc type: %s\n", cart_types[gb->cart.infos.type]);
+    printf("ROM size: %s\n", rom_size[gb->cart.rom[0x0148]]);
+    printf("RAM size: %s\n", sram_size[gb->cart.rom[0x0149]]);
+    printf("bank size: %d\n", gb->cart.infos.bank_size);
+}
+
 void cartridge_load(struct gb *gb, char *cartridge_path)
 {
     FILE *fp = NULL;
@@ -91,6 +123,9 @@ void cartridge_load(struct gb *gb, char *cartridge_path)
         if (fread(gb->cart.rom, 1, file_size, fp) != file_size)
             goto read_failed;
         printf("cartridge loaded\n");
+        gb->cart.cartridge_loaded = true;
+        cartridge_get_infos(gb);
+        mbc_init(gb);
     }
 
 file_not_found:
@@ -100,33 +135,6 @@ read_failed:
     fprintf(stderr, "Read failed\n");
     fclose(fp);
     exit(EXIT_FAILURE);
-}
-
-void cartridge_get_infos(struct gb *gb)
-{
-    if (!gb->cart.cartridge_loaded) {
-        fprintf(stderr, "Error: No cartridge found.\n");
-        return;
-    }
-    for (uint16_t i = 0x0134, j = 0; i <= 0x0143; i++) {
-        if (gb->cart.rom[i] != 0x00)
-            gb->cart.infos.name[j++] = gb->cart.rom[i];
-        else {
-            gb->cart.infos.name[j] = '\0';
-            break;
-        }
-    }
-    gb->cart.infos.type = gb->cart.rom[0x0147];
-    gb->cart.infos.rom_size = 32 * KiB * (1 << gb->cart.rom[0x0148]);
-    gb->cart.infos.ram_size = sram_size_num[gb->cart.rom[0x0149]];
-    gb->cart.infos.bank_size = gb->cart.infos.rom_size / (16 * KiB);
-    
-    // print cartridge infos
-    printf("name: %s\n", gb->cart.infos.name);
-    printf("mbc type: %s\n", cart_types[gb->cart.infos.type]);
-    printf("ROM size: %s\n", rom_size[gb->cart.rom[0x0148]]);
-    printf("RAM size: %s\n", sram_size[gb->cart.rom[0x0149]]);
-    printf("bank size: %d\n", gb->cart.infos.bank_size);
 }
 
 void rom_write(struct gb *gb, uint16_t addr, uint8_t val)
@@ -144,11 +152,7 @@ uint8_t rom_read(struct gb *gb, uint16_t addr)
 
 void load_state_after_booting(struct gb *gb)
 {
-    // TODO: missing states of APU
-
     gb->mode = NORMAL;
-
-    // cartridge
 
     // cpu
     gb->cpu.pc = 0x100;
@@ -170,6 +174,8 @@ void load_state_after_booting(struct gb *gb)
     gb->tim.tma = 0x00;
     gb->tim.tac.val = 0xf8;
     gb->tim.old_edge = 0;
+    gb->tim.frame_sequencer_clocked = false;
+    gb->tim.div_apu_clocked = false;
 
     // ppu
     gb->ppu.lcdc.val = 0x91;
@@ -213,5 +219,93 @@ void load_state_after_booting(struct gb *gb)
     gb->mbc.mbc1.banking_mode = 0;
     gb->mbc.mbc1.rom_bank_number = 0;
     gb->mbc.mbc1.ram_bank_number = 0;
+    gb->mbc.mbc1.has_battery = false;
 
+
+    // TODO: update each channel after booting status 
+    //       when implementing them. 
+
+    gb->apu.tick = 0;
+
+    // apu square1
+    gb->apu.sqr1.name = SQUARE1;
+    gb->apu.sqr1.is_active = true;
+    gb->apu.sqr1.regs.nrx0 = 0x80;
+    gb->apu.sqr1.regs.nrx1 = 0xbf;
+    gb->apu.sqr1.regs.nrx2 = 0xf3;
+    gb->apu.sqr1.regs.nrx3 = 0xff;
+    gb->apu.sqr1.regs.nrx4 = 0xbf;
+    gb->apu.sqr1.is_dac_on = is_dac_on(&gb->apu.sqr1);
+    gb->apu.sqr1.length_counter = get_square_length_load(&gb->apu.sqr1);
+    gb->apu.sqr1.timer = get_frequency(&gb->apu.sqr1);
+    gb->apu.sqr1.fs_step = 0;
+    gb->apu.sqr1.left_chan_en = true;
+    gb->apu.sqr1.right_chan_en = true;
+    gb->apu.sqr1.env_add_mode = get_envelope_add_mode(&gb->apu.sqr1);
+    gb->apu.sqr1.volume = 15;
+    gb->apu.sqr1.wave_pos = 0;
+    gb->apu.sqr1.vol_env_period = get_envelope_period(&gb->apu.sqr1);
+    gb->apu.sqr1.frequency_sweep.period = get_sweep_period(&gb->apu.sqr1);
+    gb->apu.sqr1.frequency_sweep.negate = BIT(gb->apu.sqr1.regs.nrx0, 3);
+    gb->apu.sqr1.frequency_sweep.shift = get_sweep_shift(&gb->apu.sqr1);
+    gb->apu.sqr1.frequency_sweep.is_active = true;
+    gb->apu.sqr1.frequency_sweep.timer = gb->apu.sqr1.frequency_sweep.period;
+    gb->apu.sqr1.frequency_sweep.shadow_reg = get_frequency(&gb->apu.sqr1);
+
+    // apu square2
+    gb->apu.sqr2.name = SQUARE2;
+    gb->apu.sqr2.is_active = false;
+    gb->apu.sqr2.regs.nrx1 = 0x3f;
+    gb->apu.sqr2.regs.nrx2 = 0x00;
+    gb->apu.sqr2.regs.nrx3 = 0xff;
+    gb->apu.sqr2.regs.nrx4 = 0xbf;
+    gb->apu.sqr2.is_dac_on = is_dac_on(&gb->apu.sqr2);
+    gb->apu.sqr2.length_counter = 0;
+    gb->apu.sqr2.timer = 0;
+    gb->apu.sqr2.fs_step = 0;
+    gb->apu.sqr2.left_chan_en = true;
+    gb->apu.sqr2.right_chan_en = true;
+    gb->apu.sqr2.env_add_mode = get_envelope_add_mode(&gb->apu.sqr2);
+    gb->apu.sqr2.volume = 0;
+    gb->apu.sqr2.wave_pos = 0;
+    gb->apu.sqr2.vol_env_period = get_envelope_period(&gb->apu.sqr2);
+
+    // apu wave
+    gb->apu.wave.name = WAVE;
+    gb->apu.wave.is_active = false;
+    gb->apu.wave.regs.nrx0 = 0x7f;
+    gb->apu.wave.regs.nrx1 = 0xff;
+    gb->apu.wave.regs.nrx2 = 0x9f;
+    gb->apu.wave.regs.nrx3 = 0xff;
+    gb->apu.wave.regs.nrx4 = 0xbf;
+    gb->apu.wave.is_dac_on = BIT(gb->apu.wave.regs.nrx0, 7);
+
+    // apu noise
+    gb->apu.noise.name = NOISE;
+    gb->apu.wave.is_active = false;
+    gb->apu.noise.regs.nrx1 = 0xff;
+    gb->apu.noise.regs.nrx2 = 0x00;
+    gb->apu.noise.regs.nrx3 = 0x00;
+    gb->apu.noise.regs.nrx4 = 0xbf;
+    gb->apu.noise.is_dac_on = (gb->apu.noise.regs.nrx2 & 0xf8) != 0;
+
+    // apu global control
+    gb->apu.ctrl.name = CTRL;
+    gb->apu.ctrl.regs.nrx0 = 0x77;
+    gb->apu.ctrl.regs.nrx1 = 0xf3;
+    gb->apu.ctrl.regs.nrx2 = 0xf1;
+
+    // sound panning
+    gb->apu.noise.left_chan_en = true;
+    gb->apu.wave.left_chan_en = true;
+    gb->apu.sqr2.left_chan_en = true;
+    gb->apu.sqr1.left_chan_en = true;
+    gb->apu.noise.right_chan_en = false;
+    gb->apu.wave.right_chan_en = false;
+    gb->apu.sqr2.right_chan_en = true;
+    gb->apu.sqr1.right_chan_en = true;
+
+    gb->apu.sample_buffer.ptr = 0;
+    memset(gb->apu.sample_buffer.buf, 0, BUFFER_SIZE * sizeof(int16_t));
+    gb->apu.sample_buffer.is_full = false;
 }

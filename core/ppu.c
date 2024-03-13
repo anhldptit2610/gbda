@@ -261,7 +261,8 @@ void ppu_tick(struct gb *gb)
             gb->ppu.stat.lyc_equal_ly = gb->ppu.ly == gb->ppu.lyc;
             if (gb->ppu.ly == 144) {
                 set_mode(gb, VBLANK);
-                interrupt_request(gb, INTR_SRC_VBLANK);
+                if (gb->ppu.lcdc.ppu_enable)
+                    interrupt_request(gb, INTR_SRC_VBLANK);
                 gb->ppu.frame_ready = true;
                 gb->ppu.window_line_cnt = 0;
                 gb->ppu.draw_window_this_line = false;

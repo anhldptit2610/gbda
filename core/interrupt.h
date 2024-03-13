@@ -18,7 +18,7 @@ extern "C" {
 
 uint8_t interrupt_read(struct gb *gb, uint16_t addr);
 void interrupt_write(struct gb *gb, uint16_t addr, uint8_t val);
-void interrupt_process(struct gb *gb);
+int interrupt_process(struct gb *gb);
 void interrupt_request(struct gb *gb, uint8_t intr_src);
 bool is_interrupt_pending(struct gb *gb);
 

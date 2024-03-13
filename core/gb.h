@@ -1,15 +1,17 @@
 #pragma once
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
+#define _GNU_SOURCE
 #include <stdio.h>
 #include <stdint.h>
 #include <stdlib.h>
 #include <stdbool.h>
 #include <unistd.h>
 #include <string.h>
+#include "apu.h"
+
+#define SAMPLE_RATE             44100
+#define NUM_CHANNELS            2
+#define BUFFER_SIZE             1024
 
 #define COLOR_WHITE         0x9bbc0fff     /* White */
 #define COLOR_LGRAY         0x8bac0fff     /* Light Gray */
@@ -50,6 +52,14 @@ typedef enum {
     WAITING,
     TRANSFERING,
 } dma_mode_t;
+
+typedef enum {
+    SQUARE1 = 1,
+    SQUARE2 = 2,
+    WAVE    = 3,
+    NOISE   = 4,
+    CTRL = 5,
+} apu_channel_t;
 
 struct sm83 {
     bool ime;
@@ -144,6 +154,8 @@ struct timer {
         };
     } tac;
     bool old_edge;
+    bool frame_sequencer_clocked;
+    bool div_apu_clocked;
 };
 
 struct oam_entry {
@@ -257,7 +269,62 @@ struct mbc {
         uint8_t rom_bank_number : 5;
         uint8_t ram_bank_number : 2;
         bool banking_mode;
+        bool has_battery;
+        uint8_t *ram;
     } mbc1;
+};
+
+struct apu_registers {
+    uint8_t nrx0;
+    uint8_t nrx1;
+    uint8_t nrx2;
+    uint8_t nrx3;
+    uint8_t nrx4;
+};
+
+struct apu_channel {
+    apu_channel_t name;
+    struct apu_registers regs;
+    bool is_active;
+    bool is_dac_on;
+    uint32_t timer;
+    uint8_t wave_pos;
+    bool left_chan_en;
+    bool right_chan_en;
+    /* Frame Sequencer part */
+    uint8_t fs_step : 3;
+    uint8_t length_counter;
+    uint8_t volume;
+    bool env_add_mode;
+    uint8_t vol_env_period;
+    /* For square channel 1 and 2 only */
+    uint8_t duty_cycle : 2;
+    uint8_t output;
+    struct {
+        uint8_t period : 3;
+        bool negate;
+        uint8_t shift : 3;
+        uint16_t shadow_reg;
+        bool is_active;
+        uint16_t timer;
+    } frequency_sweep;
+};
+
+struct apu {
+    int tick;
+    bool is_active;
+    uint8_t master_volume_left : 3;
+    uint8_t master_volume_right : 3;
+    struct apu_channel ctrl;
+    struct apu_channel sqr1;
+    struct apu_channel sqr2;
+    struct apu_channel wave;
+    struct apu_channel noise;
+    struct {
+        int16_t buf[BUFFER_SIZE];
+        int ptr;
+        bool is_full;
+    } sample_buffer;
 };
 
 struct gb {
@@ -277,10 +344,7 @@ struct gb {
     struct dma dma;
     struct joypad joypad;
     struct mbc mbc;
+    struct apu apu;
     int screen_scaler;
+    int executed_cycle;
 };
-
-#ifdef __cplusplus
-}
-
-#endif

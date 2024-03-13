@@ -39,15 +39,13 @@ void interrupt_write(struct gb *gb, uint16_t addr, uint8_t val)
     }
 }
 
-void interrupt_handler(struct gb *gb, uint8_t intr_src)
+int interrupt_handler(struct gb *gb, uint8_t intr_src)
 {
     gb->cpu.ime = false;
     gb->intr.flag &= ~intr_src;
-    sm83_cycle(gb); 
-    sm83_cycle(gb); 
     sm83_push_word(gb, gb->cpu.pc);
-    sm83_cycle(gb);
     gb->cpu.pc = interrupt_vector[intr_src];
+    return 5;
 }
 
 void interrupt_request(struct gb *gb, uint8_t intr_src)
@@ -60,18 +58,21 @@ bool is_interrupt_pending(struct gb *gb)
     return (gb->intr.ie & gb->intr.flag & 0x1f) ? 1 : 0;
 }
 
-void interrupt_process(struct gb *gb)
+int interrupt_process(struct gb *gb)
 {
+    int ret = 0;
+
     if (gb->cpu.ime && is_interrupt_pending(gb)) {
         if ((gb->intr.ie & gb->intr.flag & INTR_SRC_VBLANK) == INTR_SRC_VBLANK)
-            interrupt_handler(gb, INTR_SRC_VBLANK);
+            ret += interrupt_handler(gb, INTR_SRC_VBLANK);
         else if ((gb->intr.ie & gb->intr.flag & INTR_SRC_LCD) == INTR_SRC_LCD)
-            interrupt_handler(gb, INTR_SRC_LCD);
+            ret += interrupt_handler(gb, INTR_SRC_LCD);
         else if ((gb->intr.ie & gb->intr.flag & INTR_SRC_TIMER) == INTR_SRC_TIMER)
-            interrupt_handler(gb, INTR_SRC_TIMER);
+            ret += interrupt_handler(gb, INTR_SRC_TIMER);
         else if ((gb->intr.ie & gb->intr.flag & INTR_SRC_SERIAL) == INTR_SRC_SERIAL)
-            interrupt_handler(gb, INTR_SRC_SERIAL);
+            ret += interrupt_handler(gb, INTR_SRC_SERIAL);
         else if ((gb->intr.ie & gb->intr.flag & INTR_SRC_JOYPAD) == INTR_SRC_JOYPAD)
-            interrupt_handler(gb, INTR_SRC_JOYPAD);
+            ret += interrupt_handler(gb, INTR_SRC_JOYPAD);
     }
+    return ret;
 }

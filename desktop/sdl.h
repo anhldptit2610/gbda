@@ -2,12 +2,17 @@
 
 #include "gb.h"
 #include "joypad.h"
+#include "mbc.h"
+#include "apu.h"
 #include <SDL2/SDL.h>
 
 struct sdl {
     SDL_Window *window;
     SDL_Texture *texture;
     SDL_Renderer *renderer;
+    SDL_AudioDeviceID audio_dev;
+    SDL_AudioSpec desired_spec, obtained_spec;
+    int16_t audio_sample[BUFFER_SIZE];
 };
 
 void sdl_init(struct sdl *sdl, int scaler);

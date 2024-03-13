@@ -52,10 +52,14 @@ void timer_write(struct gb *gb, uint16_t addr, uint8_t val)
 
 void timer_tick(struct gb *gb)
 {
+    static bool old_bit_5, new_bit_5;
     bool old_edge = gb->tim.old_edge, new_edge;
 
     gb->tim.div++;
+    new_bit_5 = BIT(gb->tim.div, 4);
+    gb->tim.frame_sequencer_clocked = BIT(gb->tim.div - 1, 4) && !BIT(gb->tim.div, 4);
     new_edge = BIT(gb->tim.div, div_bit_to_freq[gb->tim.tac.freq]);
+    gb->tim.div_apu_clocked = !new_bit_5 && old_bit_5;
     if (gb->tim.tac.enable & (old_edge && !new_edge)) {
         if (gb->tim.tima == 0xff) {
             // TODO: timer overflow behavior
@@ -66,4 +70,5 @@ void timer_tick(struct gb *gb)
         }
     } 
     gb->tim.old_edge = BIT(gb->tim.div, div_bit_to_freq[gb->tim.tac.freq]);
+    old_bit_5 = BIT(gb->tim.div, 4);
 }

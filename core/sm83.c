@@ -1,30 +1,76 @@
 #include "sm83.h"
 
+int instr_cycle[] = {
+//  x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 xA xB xC xD xE xF
+    1, 3, 2, 2, 1, 1, 2, 1, 5, 2, 2, 2, 1, 1, 2, 1, // 0x
+    1, 3, 2, 2, 1, 1, 2, 1, 3, 2, 2, 2, 1, 1, 2, 1, // 1x
+    2, 3, 2, 2, 1, 1, 2, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 2x
+    2, 3, 2, 2, 3, 3, 3, 1, 2, 2, 2, 2, 1, 1, 2, 1, // 3x
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 4x
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 5x
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 6x
+    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 7x
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 8x
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // 9x
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // Ax
+    1, 1, 1, 1, 1, 1, 2, 1, 1, 1, 1, 1, 1, 1, 2, 1, // Bx
+    2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 0, 3, 6, 2, 4, // Cx
+    2, 3, 3, 4, 3, 4, 2, 4, 2, 4, 3, 1, 3, 6, 2, 4, // Dx
+    3, 3, 2, 0, 0, 4, 2, 4, 4, 1, 4, 0, 0, 0, 2, 4, // Ex
+    3, 3, 2, 1, 0, 4, 2, 4, 4, 2, 4, 1, 0, 0, 2, 4, // Fx
+};
+
+int cb_instr_cycle[] = {
+//  x0 x1 x2 x3 x4 x5 x6 x7 x8 x9 xA xB xC xD xE xF
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 0x 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 1x 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 2x 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 3x 
+    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 4x 
+    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 5x 
+    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 6x 
+    2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2, 3, 2, // 7x 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 8x 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // 9x 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // Ax 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // Bx 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // Cx 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // Dx 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // Ex 
+    2, 2, 2, 2, 2, 2, 4, 2, 2, 2, 2, 2, 2, 2, 4, 2, // Fx 
+};
+
 void sm83_tick(struct gb *gb)
 {
-    ppu_tick(gb);
-    ppu_tick(gb);
-    ppu_tick(gb);
-    ppu_tick(gb);
+    for (int i = 0; i < 4; i++) {
+        timer_tick(gb);
+        ppu_tick(gb);
+        apu_tick(gb);
+    }
 }
 
-void sm83_cycle(struct gb *gb)
+void sm83_cycle(struct gb *gb, int cycles)
 {
-    static int i = 0;
+    static int i = 0, passed_cycles = 0;
 
-    timer_tick(gb);
-    sm83_tick(gb);
+    for (int j = 0; j < cycles; j++) {
+        passed_cycles += 1;
+        if (passed_cycles == 95) {
+            passed_cycles = 0;
+        }
+        sm83_tick(gb);
 
-    // deal with DMA
-    if (gb->dma.mode == WAITING) {
-        gb->dma.mode = TRANSFERING;
-    } else if (gb->dma.mode == TRANSFERING) {
-        gb->oam[i] = dma_get_data(gb, gb->dma.start_addr + i);
-        if (i == 0x9f) {
-            gb->dma.mode = OFF;
-            i = 0;
-        } else {
-            i++;
+        // deal with DMA
+        if (gb->dma.mode == WAITING) {
+            gb->dma.mode = TRANSFERING;
+        } else if (gb->dma.mode == TRANSFERING) {
+            gb->oam[i] = dma_get_data(gb, gb->dma.start_addr + i);
+            if (i == 0x9f) {
+                gb->dma.mode = OFF;
+                i = 0;
+            } else {
+                i++;
+            }
         }
     }
 }
@@ -40,11 +86,7 @@ uint8_t sm83_fetch_byte(struct gb *gb)
     uint8_t ret = 0xff;
 
     if (gb->mode == HALT) {
-        sm83_cycle(gb);
         ret = 0x76;
-    // } else if (gb->mode == HALT_BUG) {
-    //     ret = bus_read(gb, gb->cpu.pc);
-    //     gb->mode = NORMAL;
     } else {
         ret = bus_read(gb, gb->cpu.pc++);
     }
@@ -531,7 +573,7 @@ void set_n_indirect_hl(struct gb *gb, uint8_t n)
 void jp(struct gb *gb, uint16_t nn, uint8_t offset, bool cond)
 {
     if (cond) {
-        bus_wait(gb);
+        gb->executed_cycle += 1;
         gb->cpu.pc = nn + (int8_t)offset;
     }
 }
@@ -539,20 +581,18 @@ void jp(struct gb *gb, uint16_t nn, uint8_t offset, bool cond)
 void call(struct gb *gb, uint16_t nn, bool cond)
 {
     if (cond) {
-        bus_wait(gb);
         sm83_push_word(gb, gb->cpu.pc);
         gb->cpu.pc = nn;
+        gb->executed_cycle += 3;
     }
 }
 
 void ret(struct gb *gb, uint8_t opcode, bool cond)
 {
-    if (opcode != 0xc9)
-        bus_wait(gb);
     if (cond) {
         uint16_t pc = sm83_pop_word(gb);
-        bus_wait(gb);
         gb->cpu.pc = pc;
+        gb->executed_cycle += 3;
     }
 }
 
@@ -564,7 +604,6 @@ void reti(struct gb *gb)
 
 void rst_n(struct gb *gb, uint8_t n)
 {
-    bus_wait(gb);
     sm83_push_word(gb, gb->cpu.pc);
     gb->cpu.pc = n;
 }
@@ -594,7 +633,7 @@ void ei(struct gb *gb)
     gb->cpu.ime = true;
 }
 
-void execute_cb_instructions(struct gb *gb, uint8_t opcode)
+int execute_cb_instructions(struct gb *gb, uint8_t opcode)
 {
     switch (opcode) {
     case 0x00: rlc_r(gb, &gb->cpu.bc.b);                              break;
@@ -856,16 +895,14 @@ void execute_cb_instructions(struct gb *gb, uint8_t opcode)
     default:
         break;
     }
+    return cb_instr_cycle[opcode];
 }
 
-void sm83_step(struct gb *gb)
+int sm83_step(struct gb *gb)
 {
     uint8_t opcode = sm83_fetch_byte(gb);
+    gb->executed_cycle = instr_cycle[opcode];
 
-    if (gb->mode == HALT_BUG) {
-        gb->cpu.pc--;
-        gb->mode = NORMAL;
-    }
     switch (opcode) {
     case 0x00:                                                          break;
     case 0x01: gb->cpu.bc.val = sm83_fetch_word(gb);                   break;
@@ -1070,7 +1107,7 @@ void sm83_step(struct gb *gb)
     case 0xc8: ret(gb, opcode, gb->cpu.af.flag.z);                    break;
     case 0xc9: ret(gb, opcode, 1);                                      break;
     case 0xca: jp(gb, sm83_fetch_word(gb), 0, gb->cpu.af.flag.z);     break;
-    case 0xcb: execute_cb_instructions(gb, sm83_fetch_byte(gb));        break;
+    case 0xcb: gb->executed_cycle = execute_cb_instructions(gb, sm83_fetch_byte(gb));        break;
     case 0xcc: call(gb, sm83_fetch_word(gb), gb->cpu.af.flag.z);      break;
     case 0xcd: call(gb, sm83_fetch_word(gb), 1);                        break;
     case 0xce: add(gb, sm83_fetch_byte(gb), gb->cpu.af.flag.c);       break;
@@ -1116,5 +1153,6 @@ void sm83_step(struct gb *gb)
         fprintf(stderr, "Unknown opcode 0x%02x\n", opcode);
         break;
     }
-    interrupt_process(gb);
+    gb->executed_cycle += interrupt_process(gb);
+    return gb->executed_cycle;
 }

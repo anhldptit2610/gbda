@@ -11,6 +11,8 @@ extern "C" {
 #include "timer.h"
 #include "dma.h"
 #include "joypad.h"
+#include "mbc.h"
+#include "apu.h"
 
 uint8_t dma_get_data(struct gb *gb, uint16_t addr);
 uint8_t bus_read(struct gb *gb, uint16_t addr);

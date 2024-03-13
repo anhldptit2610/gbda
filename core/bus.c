@@ -31,6 +31,15 @@ bool is_ppu_reg(uint16_t addr)
             addr == PPU_REG_WY || addr == PPU_REG_WX);
 }
 
+bool is_apu_reg(uint16_t addr)
+{
+    return (addr == APU_REG_NR10 || addr == APU_REG_NR11 || addr == APU_REG_NR12 || addr == APU_REG_NR13 || addr == APU_REG_NR14 ||
+            addr == APU_REG_NR21 || addr == APU_REG_NR22 || addr == APU_REG_NR23 || addr == APU_REG_NR24 ||
+            addr == APU_REG_NR30 || addr == APU_REG_NR31 || addr == APU_REG_NR32 || addr == APU_REG_NR33 || addr == APU_REG_NR34 ||
+            addr == APU_REG_NR41 || addr == APU_REG_NR42 || addr == APU_REG_NR43 || addr == APU_REG_NR44 ||
+            addr == APU_REG_NR50 || addr == APU_REG_NR51 || addr == APU_REG_NR52);
+}
+
 /* write functions */
 void vram_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
@@ -39,9 +48,14 @@ void vram_write(struct gb *gb, uint16_t addr, uint8_t val)
 
 void exram_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
-    if (!gb->mbc.mbc1.ram_enable)
-        return;
-    gb->extern_ram[addr - 0xa000] = val;
+    switch (gb->cart.infos.type) {
+    case MBC1_RAM:
+    case MBC1_RAM_BATTERY:
+        mbc1_ram_write(gb, addr, val);
+        break;
+    default:
+        break;
+    }
 }
 
 void wram_write(struct gb *gb, uint16_t addr, uint8_t val)
@@ -77,6 +91,8 @@ void io_write(struct gb *gb, uint16_t addr, uint8_t val)
         dma_write(gb, val);
     else if (addr == JOYPAD_REG_JOYP)
         joypad_write(gb, val);
+    else if (is_apu_reg(addr))
+        apu_write(gb, addr, val);
 }
 
 void hram_write(struct gb *gb, uint16_t addr, uint8_t val)
@@ -92,10 +108,17 @@ uint8_t vram_read(struct gb *gb, uint16_t addr)
 
 uint8_t exram_read(struct gb *gb, uint16_t addr)
 {
-    uint8_t ret = gb->extern_ram[addr - 0xa000];
+    uint8_t ret = 0xff;
 
-    if (!gb->mbc.mbc1.ram_enable)
+    switch (gb->cart.infos.type) {
+    case MBC1_RAM:
+    case MBC1_RAM_BATTERY:
+        ret = mbc1_ram_read(gb, addr);
+        break;
+    default:
         ret = 0xff;
+        break;
+    }
     return ret;
 }
 
@@ -134,6 +157,8 @@ uint8_t io_read(struct gb *gb, uint16_t addr)
         ret = dma_read(gb);
     else if (addr == JOYPAD_REG_JOYP)
         ret = joypad_read(gb);
+    else if (is_apu_reg(addr))
+        ret = apu_read(gb, addr);
     return ret;
 }
 
@@ -182,12 +207,10 @@ uint8_t (*read_function[])(struct gb *gb, uint16_t addr) = {
 
 void bus_wait(struct gb *gb)
 {
-    sm83_cycle(gb);
 }
 
 uint8_t bus_read(struct gb *gb, uint16_t addr)
 {
-    sm83_cycle(gb);
     return read_function[bus_get_mem_region(addr)](gb, addr);
 }
 
@@ -198,6 +221,5 @@ uint8_t dma_get_data(struct gb *gb, uint16_t addr)
 
 void bus_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
-    sm83_cycle(gb);
     write_function[bus_get_mem_region(addr)](gb, addr, val);
 }
