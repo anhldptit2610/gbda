@@ -67,7 +67,7 @@ int main(int argc, char *argv[])
             }
         }
         gb.apu.sample_buffer.is_full = false;
-        SDL_QueueAudio(sdl.audio_dev, gb.apu.sample_buffer.buf, BUFFER_SIZE);
+        SDL_QueueAudio(sdl.audio_dev, gb.apu.sample_buffer.buf, BUFFER_SIZE * 2);
         while (SDL_GetQueuedAudioSize(1) > BUFFER_SIZE * 4);
     }
     return 0;

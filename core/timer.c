@@ -13,16 +13,16 @@ uint8_t timer_read(struct gb *gb, uint16_t addr)
 
     switch (addr) {
     case TIM_REG_DIV:
-        ret = (gb->tim.div >> 6) & 0x00ff;
+        ret = (gb->timer.div >> 6) & 0x00ff;
         break;
     case TIM_REG_TAC:
-        ret = gb->tim.tac.val;
+        ret = gb->timer.tac.val;
         break;
     case TIM_REG_TIMA:
-        ret = gb->tim.tima;
+        ret = gb->timer.tima;
         break;
     case TIM_REG_TMA:
-        ret = gb->tim.tma;
+        ret = gb->timer.tma;
         break;
     default:
         break;
@@ -34,16 +34,16 @@ void timer_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
     switch (addr) {
     case TIM_REG_DIV:
-        gb->tim.div = 0;
+        gb->timer.div = 0;
         break;
     case TIM_REG_TAC:
-        gb->tim.tac.val = val;
+        gb->timer.tac.val = val;
         break;
     case TIM_REG_TIMA:
-        gb->tim.tima = val;
+        gb->timer.tima = val;
         break;
     case TIM_REG_TMA:
-        gb->tim.tma = val;
+        gb->timer.tma = val;
         break;
     default:
         break;
@@ -52,23 +52,18 @@ void timer_write(struct gb *gb, uint16_t addr, uint8_t val)
 
 void timer_tick(struct gb *gb)
 {
-    static bool old_bit_5, new_bit_5;
-    bool old_edge = gb->tim.old_edge, new_edge;
+    bool old_edge = gb->timer.old_edge, new_edge;
 
-    gb->tim.div++;
-    new_bit_5 = BIT(gb->tim.div, 4);
-    gb->tim.frame_sequencer_clocked = BIT(gb->tim.div - 1, 4) && !BIT(gb->tim.div, 4);
-    new_edge = BIT(gb->tim.div, div_bit_to_freq[gb->tim.tac.freq]);
-    gb->tim.div_apu_clocked = !new_bit_5 && old_bit_5;
-    if (gb->tim.tac.enable & (old_edge && !new_edge)) {
-        if (gb->tim.tima == 0xff) {
+    gb->timer.div++;
+    new_edge = BIT(gb->timer.div, div_bit_to_freq[gb->timer.tac.freq]);
+    if (gb->timer.tac.enable & (old_edge && !new_edge)) {
+        if (gb->timer.tima == 0xff) {
             // TODO: timer overflow behavior
-            gb->tim.tima = gb->tim.tma;
+            gb->timer.tima = gb->timer.tma;
             interrupt_request(gb, INTR_SRC_TIMER);
         } else {
-            gb->tim.tima++;
+            gb->timer.tima++;
         }
     } 
-    gb->tim.old_edge = BIT(gb->tim.div, div_bit_to_freq[gb->tim.tac.freq]);
-    old_bit_5 = BIT(gb->tim.div, 4);
+    gb->timer.old_edge = BIT(gb->timer.div, div_bit_to_freq[gb->timer.tac.freq]);
 }
