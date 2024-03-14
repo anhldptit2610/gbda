@@ -1,12 +1,4 @@
-// TODO: square1, wave and noise channel
 #include "apu.h"
-
-float dac_output[] = {
-    -1.0, -0.867, -0.733, -0.6,
-    -0.467, -0.333, -0.2, -0.067,
-    0.067, 0.2, 0.333, 0.467,
-    0.6, 0.733, 0.867, 1 
-};
 
 uint8_t nrxx_or_val[6][5] = {
     [0] = {0x00, 0x00, 0x00, 0x00, 0x00},       // don't use this
@@ -17,12 +9,16 @@ uint8_t nrxx_or_val[6][5] = {
     [5] = {0x00, 0x00, 0x70, 0x00, 0x00},
 };
 
+uint32_t noise_divisor[8] = {8, 16, 32, 48, 64, 80, 96, 112};
+
 uint8_t square_wave[4][8] = {
     [0] = {0, 0, 0, 0, 0, 0, 0, 1},       /* 12.5% duty cycle */
     [1] = {1, 0, 0, 0, 0, 0, 0, 1},       /* 25% duty cycle */
     [2] = {1, 0, 0, 0, 0, 1, 1, 1},       /* 50% duty cycle */
     [3] = {0, 1, 1, 1, 1, 1, 1, 0},       /* 75% duty cycle */
 };
+
+uint8_t wave_channel_shift[4] = {4, 0, 1, 2};
 
 /**********************************************************/
 /*****************  Supporting functions ******************/
@@ -50,10 +46,6 @@ uint8_t get_square_duty_cycle(struct apu_channel *chan)
     return (chan->regs.nrx1 >> 6) & 0x03;
 }
 
-uint8_t get_square_length_load(struct apu_channel *chan)
-{
-
-}
 
 bool is_length_counter_enable(struct apu_channel *chan)
 {
@@ -88,7 +80,46 @@ bool is_dac_on(struct apu_channel *chan)
     return (chan->name == WAVE) ? BIT(chan->regs.nrx0, 7) : (chan->regs.nrx2 & 0xf8);
 }
 
+/* noise channel helpers */
+
+bool lfsr_tick(struct apu_channel *chan)
+{
+    uint16_t lfsr = chan->lfsr;
+    uint16_t feedback = BIT(lfsr, 0) ^ BIT(lfsr, 1), shifted_out = BIT(lfsr, 0);
+
+    lfsr = ((lfsr >> 1) & ~(1U << 14)) | (feedback << 14);
+    if (chan->width_mode) {
+        // the XOR result is also put into bit 6 after the shift
+        lfsr = (lfsr & ~(1U << 6)) | (feedback << 6);
+    }
+    chan->lfsr = lfsr & 0x7fff;
+//    return BIT(lfsr, 0);
+    return shifted_out;
+}
+
+uint8_t get_noise_clock_shift(struct apu_channel *chan)
+{
+    return (chan->regs.nrx3 >> 4) & 0x0f;
+}
+
+bool get_noise_width_mode(struct apu_channel *chan)
+{
+    return BIT(chan->regs.nrx3, 3);
+}
+
+uint16_t get_noise_divisor(struct apu_channel *chan)
+{
+    return noise_divisor[chan->regs.nrx3 & 0x07];
+}
+
 /* other helpers */
+uint8_t get_wave_channel_sample(struct gb *gb)
+{
+    uint8_t pos = gb->apu.wave.pos;
+
+    return (pos % 2 == 0) ? (gb->apu.wave_ram[pos / 2] >> 4) & 0x0f : gb->apu.wave_ram[pos / 2] & 0x0f;
+}
+
 uint8_t get_register_num(uint16_t addr)
 {
     int ret = 0;
@@ -137,6 +168,11 @@ void load_new_frequency(struct apu_channel *chan, uint16_t frequency)
     chan->regs.nrx4 = (chan->regs.nrx4 & 0xf8) | (MSB(frequency) & 0x07);
 }
 
+uint8_t get_length_load(struct apu_channel *chan)
+{
+    return (chan->name == WAVE) ? chan->regs.nrx1 : (chan->regs.nrx1 & 0x3f);
+}
+
 struct apu_channel *get_channel_from_addr(struct gb *gb, uint16_t addr)
 {
     struct apu_channel *ret = NULL;
@@ -160,8 +196,9 @@ struct apu_channel *get_channel_from_addr(struct gb *gb, uint16_t addr)
 
 float get_channel_amplitude(struct apu_channel *chan)
 {
-    int dac_input = chan->output * chan->volume;
-    float dac_output = (is_dac_on(chan) && chan->is_active) ? (dac_input / 7.5) - 1.0 : 0.0;
+    int dac_input = (chan->name != WAVE) ? chan->output * chan->volume : chan->output;
+    //float dac_output = (is_dac_on(chan) && chan->is_active) ? (dac_input / 7.5) - 1.0 : 0.0;
+    float dac_output = (is_dac_on(chan)) ? (dac_input / 7.5) - 1.0 : 0.0;
 
     return dac_output;
 }
@@ -172,11 +209,9 @@ uint16_t calculate_frequency(struct apu_channel *chan)
     uint16_t new_frequency;
     uint8_t shift_amount;
 
-    if (chan->name != SQUARE1)
-        return;
     shift_amount = get_sweep_shift(chan);
-    new_frequency = chan->frequency_sweep.shadow_reg + ((chan->frequency_sweep.negate)
-            ? (chan->frequency_sweep.shadow_reg >> shift_amount) :  -1 * (chan->frequency_sweep.shadow_reg >> shift_amount));
+    new_frequency = chan->frequency_sweep.shadow_frequency + ((chan->frequency_sweep.negate)
+            ? (chan->frequency_sweep.shadow_frequency >> shift_amount) :  -1 * (chan->frequency_sweep.shadow_frequency >> shift_amount));
     // overflow check. If the new frequency exceeds 2047, disable the channel
     if (new_frequency > 2047)
         chan->is_active = false; 
@@ -187,26 +222,31 @@ uint16_t calculate_frequency(struct apu_channel *chan)
 
 void trigger_channel(struct apu_channel *chan)
 {
-    uint16_t new_frequency = 0;
-
     // channel is enabled
     chan->is_active = true;
     // if length counter is 0, it is set to 64(256 for wave channel)
-    if (!chan->length_counter)
-        chan->length_counter = (chan->name == WAVE) ? 256 : 64;
+    if (!chan->length_counter.counter)
+        chan->length_counter.counter = (chan->name == WAVE) ? 256 : 64;
     // frequency timer is reloaded with period
-    chan->timer = TO_U16(chan->regs.nrx3, chan->regs.nrx4 & 0x07);
+    if (chan->name == WAVE) {
+        chan->timer = (2048 - TO_U16(chan->regs.nrx3, chan->regs.nrx4 & 0x07)) * 2;
+    } else if (chan->name == NOISE) {
+        chan->timer = chan->divisor << chan->clock_shift;
+    } else {
+        chan->timer = (2048 - TO_U16(chan->regs.nrx3, chan->regs.nrx4 & 0x07)) * 4;
+    }
     // channel volume is reloaded from NRx2
-    chan->volume = (chan->regs.nrx2 >> 4) & 0x0f;
+    chan->volume = get_envelope_volume(chan);
     // internal period timer is loaded with the period from NRx2
-    chan->vol_env_period = get_envelope_period(chan);
-    // TODO noise channel's LFSR bits are all set to 1
-
-    // TODO wave channel's position is set to 0 but sample buffer is NOT refilled
-
-    if (chan->name == SQUARE1) {
+    chan->volume_envelope.period = get_envelope_period(chan);
+    if (chan->name == NOISE) {
+        // noise channel's LFSR bits are all set to 1
+        chan->lfsr = 0x7fff;
+    } else if (chan->name == WAVE) {
+        chan->pos = 0; 
+    } else if (chan->name == SQUARE1) {
         // square 1's frequency is copied to the shadow register
-        chan->frequency_sweep.shadow_reg = get_frequency(chan);
+        chan->frequency_sweep.shadow_frequency = get_frequency(chan);
         // the sweep timer is reloaded
         chan->frequency_sweep.timer = get_sweep_period(chan);
         // the internal flag is set if either the sweep period or
@@ -234,17 +274,16 @@ void generate_sample(struct gb *gb)
     float left_mixer_output = 0.0;
     float right_mixer_output = 0.0;
 
-    /* TODO Now we just work with CH2. */
     left_mixer_output = (((ch2->left_chan_en) ? get_channel_amplitude(ch2) : 0.0) + 
                         ((ch1->left_chan_en) ? get_channel_amplitude(ch1) : 0.0) +
-                         (0.0) + 
-                         (0.0)) / 2.0;
+                        ((ch3->left_chan_en) ? get_channel_amplitude(ch3) : 0.0) + 
+                         ((ch4->left_chan_en) ? get_channel_amplitude(ch4) : 0.0)) / 4.0;
     left_mixer_output = left_mixer_output * (float)gb->apu.master_volume_left / 7.0;
     right_mixer_output = (((ch2->right_chan_en) ? get_channel_amplitude(ch2) : 0.0) + 
                          ((ch1->right_chan_en) ? get_channel_amplitude(ch1) : 0.0) + 
-                         (0.0) + 
-                         (0.0)) / 2.0;
-    right_mixer_output = right_mixer_output * (float)gb->apu.master_volume_left / 7.0;
+                         ((ch3->right_chan_en) ? get_channel_amplitude(ch3) : 0.0) + 
+                          ((ch4->right_chan_en) ? get_channel_amplitude(ch4) : 0.0)) / 4.0;
+    right_mixer_output = right_mixer_output * (float)gb->apu.master_volume_right / 7.0;
     gb->apu.sample_buffer.buf[gb->apu.sample_buffer.ptr] = (int16_t)(left_mixer_output * 32767.0f);
     gb->apu.sample_buffer.buf[gb->apu.sample_buffer.ptr + 1] = (int16_t)(right_mixer_output * 32767.0f);
     gb->apu.sample_buffer.ptr += 2;
@@ -263,8 +302,8 @@ void length_counter_tick(struct apu_channel *chan)
     */
     if (!is_length_counter_enable(chan))
         return;
-    chan->length_counter--;
-    if (!chan->length_counter)
+    chan->length_counter.counter--;
+    if (!chan->length_counter.counter)
         chan->is_active = false;
 }
 
@@ -272,6 +311,8 @@ void volume_envelope_tick(struct apu_channel *chan)
 {
     uint8_t new_volume;
 
+    if (chan->name == WAVE)
+        return;
     /* When the timer generates a clock and the envelope period
        is not zero, a new volume is calculated by adding or subtracting
        (as set by NRx2) one from the current volume. If this new volume
@@ -279,12 +320,12 @@ void volume_envelope_tick(struct apu_channel *chan)
        left unchanged and no further automatic increments/decrements are
        made to the volume until the channel is triggered again
     */
-    if (!get_envelope_period(chan) || !chan->vol_env_period)
+    if (!get_envelope_period(chan) || !chan->volume_envelope.period)
         return;
-    chan->vol_env_period--;
-    if (!chan->vol_env_period) {
+    chan->volume_envelope.period--;
+    if (!chan->volume_envelope.period) {
         // reload the period with value from NRx2
-        chan->vol_env_period = get_envelope_period(chan);
+        chan->volume_envelope.period = get_envelope_period(chan);
         new_volume = (get_envelope_add_mode(chan)) ? chan->volume - 1 : chan->volume + 1;
         if (IN_RANGE(new_volume, 0, 15))
             chan->volume = new_volume;
@@ -296,7 +337,6 @@ void volume_envelope_tick(struct apu_channel *chan)
 void frequency_sweep_tick(struct apu_channel *chan)
 {
     uint16_t new_frequency = 0;
-    uint8_t shift_amount;
 
     if (chan->name != SQUARE1)
         return;
@@ -323,7 +363,7 @@ void frequency_sweep_tick(struct apu_channel *chan)
             // frequency calculation
             new_frequency = calculate_frequency(chan);
             if (new_frequency <= 2047 && chan->frequency_sweep.shift) {
-                chan->frequency_sweep.shadow_reg = new_frequency;
+                chan->frequency_sweep.shadow_frequency = new_frequency;
                 load_new_frequency(chan, new_frequency);
 
                 /* for overflow check */
@@ -335,8 +375,8 @@ void frequency_sweep_tick(struct apu_channel *chan)
 
 void frame_sequencer_tick(struct apu_channel *chan)
 {
-    chan->fs_step++;
-    switch (chan->fs_step) {
+    chan->frame_sequencer++;
+    switch (chan->frame_sequencer) {
     case 0:
         length_counter_tick(chan);
         break;
@@ -365,7 +405,7 @@ void frame_sequencer_tick(struct apu_channel *chan)
     }
 }
 
-void apu_write(struct gb *gb, uint16_t addr, uint8_t val)
+void apu_regs_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
     struct apu_channel *chan = get_channel_from_addr(gb, addr);
     int reg_num = get_register_num(addr);
@@ -376,12 +416,14 @@ void apu_write(struct gb *gb, uint16_t addr, uint8_t val)
         if (chan->name == CTRL) {
             gb->apu.master_volume_left = (val >> 4) & 0x07;
             gb->apu.master_volume_right = val & 0x07;
+        } else if (chan->name == SQUARE1) {
+            // square1's sweep period, negate, shift
+            chan->frequency_sweep.period = get_sweep_period(chan);
+            chan->frequency_sweep.negate = BIT(val, 3);
+            chan->frequency_sweep.shift = get_sweep_shift(chan);
+        } else if (chan->name == WAVE) {
+            chan->is_dac_on = BIT(val, 7);
         }
-        // TODO square1's sweep period, negate, shift
-        chan->frequency_sweep.period = get_sweep_period(chan);
-        chan->frequency_sweep.negate = BIT(val, 3);
-        chan->frequency_sweep.shift = get_sweep_shift(chan);
-        // TODO wave's DAC power
         /* NR50's Vin-related bits will not be processed, because no 
             ROM would use it anyway */
         break;
@@ -393,11 +435,11 @@ void apu_write(struct gb *gb, uint16_t addr, uint8_t val)
         */
         if (chan->name == SQUARE1 || chan->name == SQUARE2) {
             chan->duty_cycle = val >> 6;
-            chan->length_counter = val & 0x3f;
+            chan->length_counter.counter = val & 0x3f;
         } else if (chan->name == WAVE) {
-            chan->length_counter = val;
+            chan->length_counter.counter = val;
         } else if (chan->name == NOISE) {
-            chan->length_counter = val & 0x3f;
+            chan->length_counter.counter = val & 0x3f;
         } else if (chan->name == CTRL) {
             gb->apu.noise.left_chan_en = BIT(val, 7);
             gb->apu.wave.left_chan_en = BIT(val, 6);
@@ -411,12 +453,19 @@ void apu_write(struct gb *gb, uint16_t addr, uint8_t val)
         break;
     case 2:
         chan->regs.nrx2 = val;
-        // TODO get volume code if the channel is wave
-        if (chan->name == CTRL)
+        if (chan->name == CTRL) {
             gb->apu.is_active = BIT(val, 7);
+        } else if (chan->name == WAVE) {
+           chan->volume_code = (val >> 5) & 0x03; 
+        }
         break;
     case 3:
         chan->regs.nrx3 = val;
+        if (chan->name == NOISE) {
+            chan->clock_shift = get_noise_clock_shift(chan);
+            chan->width_mode = get_noise_width_mode(chan);
+            chan->divisor = get_noise_divisor(chan);
+        }
         break;
     case 4:
         chan->regs.nrx4 = val;
@@ -430,7 +479,12 @@ void apu_write(struct gb *gb, uint16_t addr, uint8_t val)
     }
 }
 
-uint8_t apu_read(struct gb *gb, uint16_t addr)
+void apu_ram_write(struct gb *gb, uint16_t addr, uint8_t val)
+{
+    gb->apu.wave_ram[addr - 0xff30] = val;
+}
+
+uint8_t apu_regs_read(struct gb *gb, uint16_t addr)
 {
     struct apu_channel *chan = get_channel_from_addr(gb, addr);
     int reg_num = get_register_num(addr);
@@ -464,6 +518,11 @@ uint8_t apu_read(struct gb *gb, uint16_t addr)
     return ret;
 }
 
+uint8_t apu_ram_read(struct gb *gb, uint16_t addr)
+{
+    return gb->apu.wave_ram[addr - 0xff30];
+}
+
 void ch1_tick(struct gb *gb)
 {
     struct apu_channel *chan = &gb->apu.sqr1;
@@ -478,8 +537,8 @@ void ch1_tick(struct gb *gb)
         chan->timer--;
     if (!chan->timer) {
         chan->timer = (2048 - get_frequency(chan)) * 4;
-        chan->output = square_wave[get_square_duty_cycle(chan)][chan->wave_pos];
-        chan->wave_pos = (chan->wave_pos == 7) ? 0 : chan->wave_pos + 1;
+        chan->output = square_wave[get_square_duty_cycle(chan)][chan->pos];
+        chan->pos = (chan->pos == 7) ? 0 : chan->pos + 1;
     }
     /* For each 512 Hz, tick frame sequencer */
     if (!(gb->apu.tick % 8192)) 
@@ -500,8 +559,52 @@ void ch2_tick(struct gb *gb)
         chan->timer--;
     if (!chan->timer) {
         chan->timer = (2048 - get_frequency(chan)) * 4;
-        chan->output = square_wave[get_square_duty_cycle(chan)][chan->wave_pos];
-        chan->wave_pos = (chan->wave_pos == 7) ? 0 : chan->wave_pos + 1;
+        chan->output = square_wave[get_square_duty_cycle(chan)][chan->pos];
+        chan->pos = (chan->pos == 7) ? 0 : chan->pos + 1;
+    }
+    /* For each 512 Hz, tick frame sequencer */
+    if (!(gb->apu.tick % 8192)) 
+        frame_sequencer_tick(chan);
+}
+
+void ch3_tick(struct gb *gb)
+{
+    struct apu_channel *chan = &gb->apu.wave;
+
+    if (!chan->is_active || !is_dac_on(chan))
+        return;
+    /* For each T-cycle the frequency timer is decremented.
+        As soon as it reach zero, it is reloaded and the 
+        wave duty position is incremented.
+    */
+    if (chan->timer > 0)
+        chan->timer--;
+    if (!chan->timer) {
+        chan->timer = (2048 - get_frequency(chan)) * 2;
+        chan->output = get_wave_channel_sample(gb) >> wave_channel_shift[chan->volume_code];
+        chan->pos = (chan->pos == 31) ? 0 : chan->pos + 1;
+    }
+    /* For each 512 Hz, tick frame sequencer */
+    if (!(gb->apu.tick % 8192)) 
+        frame_sequencer_tick(chan);
+}
+
+void ch4_tick(struct gb *gb)
+{
+    struct apu_channel *chan = &gb->apu.noise;
+
+    if (!chan->is_active || !is_dac_on(chan))
+        return;
+    /* For each T-cycle the frequency timer is decremented.
+        As soon as it reach zero, it is reloaded and the 
+        wave duty position is incremented.
+    */
+    if (chan->timer > 0)
+        chan->timer--;
+    if (!chan->timer) {
+        chan->timer = chan->divisor << chan->clock_shift;
+        // do a LFSR step
+        chan->output = (lfsr_tick(chan)) ? 0 : 1;
     }
     /* For each 512 Hz, tick frame sequencer */
     if (!(gb->apu.tick % 8192)) 
@@ -515,6 +618,8 @@ void apu_tick(struct gb *gb)
     gb->apu.tick++;
     ch1_tick(gb);
     ch2_tick(gb);
+    ch3_tick(gb);
+    ch4_tick(gb);
 
     /* Every 95 Hz, we get a sample. This would happen until the sampling
         buffer is full of 512 samples. 95 here is from the Game Boy's working

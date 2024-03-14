@@ -92,7 +92,9 @@ void io_write(struct gb *gb, uint16_t addr, uint8_t val)
     else if (addr == JOYPAD_REG_JOYP)
         joypad_write(gb, val);
     else if (is_apu_reg(addr))
-        apu_write(gb, addr, val);
+        apu_regs_write(gb, addr, val);
+    else if (IN_RANGE(addr, 0xff30, 0xff3f))
+        apu_ram_write(gb, addr, val);
 }
 
 void hram_write(struct gb *gb, uint16_t addr, uint8_t val)
@@ -158,7 +160,9 @@ uint8_t io_read(struct gb *gb, uint16_t addr)
     else if (addr == JOYPAD_REG_JOYP)
         ret = joypad_read(gb);
     else if (is_apu_reg(addr))
-        ret = apu_read(gb, addr);
+        ret = apu_regs_read(gb, addr);
+    else if (IN_RANGE(addr, 0xff30, 0xff3f))
+        ret = apu_ram_read(gb, addr);
     return ret;
 }
 

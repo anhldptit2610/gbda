@@ -154,8 +154,6 @@ struct timer {
         };
     } tac;
     bool old_edge;
-    bool frame_sequencer_clocked;
-    bool div_apu_clocked;
 };
 
 struct oam_entry {
@@ -282,32 +280,55 @@ struct apu_registers {
     uint8_t nrx4;
 };
 
+struct length_counter {
+    uint16_t counter;
+    bool is_enable;
+};
+
+struct volume_envelope {
+    uint8_t period;
+    bool add_mode;
+};
+
+struct frequency_sweep {
+    uint8_t period : 3;
+    bool negate;
+    uint8_t shift : 3;
+    uint16_t shadow_frequency;
+    bool is_active;
+    uint16_t timer;
+};
+
+struct lfsr {
+    uint16_t lfsr;
+    uint8_t clock_shift : 4;
+    bool width_mode;
+    uint8_t divisor : 3;
+};
+
 struct apu_channel {
     apu_channel_t name;
     struct apu_registers regs;
     bool is_active;
     bool is_dac_on;
     uint32_t timer;
-    uint8_t wave_pos;
     bool left_chan_en;
     bool right_chan_en;
-    /* Frame Sequencer part */
-    uint8_t fs_step : 3;
-    uint8_t length_counter;
     uint8_t volume;
-    bool env_add_mode;
-    uint8_t vol_env_period;
-    /* For square channel 1 and 2 only */
-    uint8_t duty_cycle : 2;
     uint8_t output;
-    struct {
-        uint8_t period : 3;
-        bool negate;
-        uint8_t shift : 3;
-        uint16_t shadow_reg;
-        bool is_active;
-        uint16_t timer;
-    } frequency_sweep;
+    uint8_t frame_sequencer : 3;
+    struct length_counter length_counter;
+    struct volume_envelope volume_envelope;
+    struct frequency_sweep frequency_sweep;
+    /* Noise channel fields */
+    uint16_t lfsr;
+    uint8_t clock_shift : 4;
+    bool width_mode;
+    uint32_t divisor;
+    /* square channels fields */
+    uint8_t pos;
+    uint8_t duty_cycle : 2;
+    uint8_t volume_code : 2;
 };
 
 struct apu {
@@ -325,6 +346,7 @@ struct apu {
         int ptr;
         bool is_full;
     } sample_buffer;
+    uint16_t wave_ram[16];
 };
 
 struct gb {
@@ -338,8 +360,8 @@ struct gb {
     gb_mode_t mode;
     struct sm83 cpu;
     struct cartridge cart;
-    struct interrupt intr;
-    struct timer tim;
+    struct interrupt interrupt;
+    struct timer timer;
     struct ppu ppu;
     struct dma dma;
     struct joypad joypad;

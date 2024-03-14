@@ -152,160 +152,183 @@ uint8_t rom_read(struct gb *gb, uint16_t addr)
 
 void load_state_after_booting(struct gb *gb)
 {
+    // make code shorter, easier to read
+    struct sm83 *cpu = &gb->cpu;
+    struct ppu *ppu = &gb->ppu;
+    struct interrupt *interrupt = &gb->interrupt;
+    struct timer *timer = &gb->timer;
+    struct dma *dma = &gb->dma;
+    struct joypad *joypad = &gb->joypad;
+    struct mbc *mbc = &gb->mbc;
+    struct apu *apu = &gb->apu;
+
     gb->mode = NORMAL;
 
     // cpu
-    gb->cpu.pc = 0x100;
-    gb->cpu.af.a = 0x01;
-    gb->cpu.af.flag.z = 1;
-    gb->cpu.af.flag.n = 0;
-    gb->cpu.bc.val = 0x0013;
-    gb->cpu.de.val = 0x00d8;
-    gb->cpu.hl.val = 0x014d;
-    gb->cpu.sp = 0xfffe; 
+    cpu->pc = 0x100;
+    cpu->af.a = 0x01;
+    cpu->af.flag.z = 1;
+    cpu->af.flag.n = 0;
+    cpu->bc.val = 0x0013;
+    cpu->de.val = 0x00d8;
+    cpu->hl.val = 0x014d;
+    cpu->sp = 0xfffe; 
 
     // interrupt
-    gb->intr.flag = 0xe1;
-    gb->intr.ie = 0x00;
+    interrupt->flag = 0xe1;
+    interrupt->ie = 0x00;
 
     // timer
-    gb->tim.div = 0xab;
-    gb->tim.tima = 0x00;
-    gb->tim.tma = 0x00;
-    gb->tim.tac.val = 0xf8;
-    gb->tim.old_edge = 0;
-    gb->tim.frame_sequencer_clocked = false;
-    gb->tim.div_apu_clocked = false;
+    timer->div = 0xab;
+    timer->tima = 0x00;
+    timer->tma = 0x00;
+    timer->tac.val = 0xf8;
+    timer->old_edge = 0;
 
     // ppu
-    gb->ppu.lcdc.val = 0x91;
-    gb->ppu.stat.val = 0x85;
-    gb->ppu.scy = 0x00;
-    gb->ppu.scx = 0x00;
-    gb->ppu.ly = 0x00;
-    gb->ppu.lyc = 0x00;
-    gb->ppu.bgp = 0xfc;
-    gb->ppu.wy = 0x00;
-    gb->ppu.wx = 0x00;
-    gb->ppu.ticks = 0;
-    gb->ppu.mode = OAM_SCAN;
-    memset(gb->ppu.frame_buffer, COLOR_WHITE, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));
-    gb->ppu.frame_ready = false;
-    gb->ppu.oam_entry_cnt = 0;
-    gb->ppu.sprite_cnt = 0;
-    gb->ppu.stat_intr_line = false;
-    gb->ppu.stat_intr_src.val = 0;
-    gb->ppu.window_in_frame = false;
-    gb->ppu.window_line_cnt = 0;
-    gb->ppu.draw_window_this_line = false;
+    ppu->lcdc.val = 0x91;
+    ppu->stat.val = 0x85;
+    ppu->scy = 0x00;
+    ppu->scx = 0x00;
+    ppu->ly = 0x00;
+    ppu->lyc = 0x00;
+    ppu->bgp = 0xfc;
+    ppu->wy = 0x00;
+    ppu->wx = 0x00;
+    ppu->ticks = 0;
+    ppu->mode = OAM_SCAN;
+    memset(ppu->frame_buffer, COLOR_WHITE, SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(uint32_t));
+    ppu->frame_ready = false;
+    ppu->oam_entry_cnt = 0;
+    ppu->sprite_cnt = 0;
+    ppu->stat_intr_line = false;
+    ppu->stat_intr_src.val = 0;
+    ppu->window_in_frame = false;
+    ppu->window_line_cnt = 0;
+    ppu->draw_window_this_line = false;
 
     // dma
-    gb->dma.mode = OFF;
-    gb->dma.reg = 0xff;
+    dma->mode = OFF;
+    dma->reg = 0xff;
 
     // joypad
-    gb->joypad.a = 1;
-    gb->joypad.b = 1;
-    gb->joypad.select = 1;
-    gb->joypad.start = 1;
-    gb->joypad.up = 1;
-    gb->joypad.down = 1;
-    gb->joypad.left = 1;
-    gb->joypad.right = 1;
-    gb->joypad.joyp.val = 0xcf;
+    joypad->a = 1;
+    joypad->b = 1;
+    joypad->select = 1;
+    joypad->start = 1;
+    joypad->up = 1;
+    joypad->down = 1;
+    joypad->left = 1;
+    joypad->right = 1;
+    joypad->joyp.val = 0xcf;
 
     // mbcs
-    gb->mbc.mbc1.ram_enable = 0;
-    gb->mbc.mbc1.banking_mode = 0;
-    gb->mbc.mbc1.rom_bank_number = 0;
-    gb->mbc.mbc1.ram_bank_number = 0;
-    gb->mbc.mbc1.has_battery = false;
+    mbc->mbc1.ram_enable = 0;
+    mbc->mbc1.banking_mode = 0;
+    mbc->mbc1.rom_bank_number = 0;
+    mbc->mbc1.ram_bank_number = 0;
+    mbc->mbc1.has_battery = false;
 
 
     // TODO: update each channel after booting status 
     //       when implementing them. 
 
-    gb->apu.tick = 0;
+    apu->tick = 0;
 
     // apu square1
-    gb->apu.sqr1.name = SQUARE1;
-    gb->apu.sqr1.is_active = true;
-    gb->apu.sqr1.regs.nrx0 = 0x80;
-    gb->apu.sqr1.regs.nrx1 = 0xbf;
-    gb->apu.sqr1.regs.nrx2 = 0xf3;
-    gb->apu.sqr1.regs.nrx3 = 0xff;
-    gb->apu.sqr1.regs.nrx4 = 0xbf;
-    gb->apu.sqr1.is_dac_on = is_dac_on(&gb->apu.sqr1);
-    gb->apu.sqr1.length_counter = get_square_length_load(&gb->apu.sqr1);
-    gb->apu.sqr1.timer = get_frequency(&gb->apu.sqr1);
-    gb->apu.sqr1.fs_step = 0;
-    gb->apu.sqr1.left_chan_en = true;
-    gb->apu.sqr1.right_chan_en = true;
-    gb->apu.sqr1.env_add_mode = get_envelope_add_mode(&gb->apu.sqr1);
-    gb->apu.sqr1.volume = 15;
-    gb->apu.sqr1.wave_pos = 0;
-    gb->apu.sqr1.vol_env_period = get_envelope_period(&gb->apu.sqr1);
-    gb->apu.sqr1.frequency_sweep.period = get_sweep_period(&gb->apu.sqr1);
-    gb->apu.sqr1.frequency_sweep.negate = BIT(gb->apu.sqr1.regs.nrx0, 3);
-    gb->apu.sqr1.frequency_sweep.shift = get_sweep_shift(&gb->apu.sqr1);
-    gb->apu.sqr1.frequency_sweep.is_active = true;
-    gb->apu.sqr1.frequency_sweep.timer = gb->apu.sqr1.frequency_sweep.period;
-    gb->apu.sqr1.frequency_sweep.shadow_reg = get_frequency(&gb->apu.sqr1);
+    apu->sqr1.name = SQUARE1;
+    apu->sqr1.is_active = true;
+    apu->sqr1.regs.nrx0 = 0x80;
+    apu->sqr1.regs.nrx1 = 0xbf;
+    apu->sqr1.regs.nrx2 = 0xf3;
+    apu->sqr1.regs.nrx3 = 0xff;
+    apu->sqr1.regs.nrx4 = 0xbf;
+    apu->sqr1.is_dac_on = is_dac_on(&gb->apu.sqr1);
+    apu->sqr1.length_counter.counter = get_length_load(&gb->apu.sqr1);
+    apu->sqr1.timer = get_frequency(&gb->apu.sqr1);
+    apu->sqr1.frame_sequencer = 0;
+    apu->sqr1.left_chan_en = true;
+    apu->sqr1.right_chan_en = true;
+    apu->sqr1.volume_envelope.add_mode = get_envelope_add_mode(&gb->apu.sqr1);
+    apu->sqr1.volume = 15;
+    apu->sqr1.pos = 0;
+    apu->sqr1.volume_envelope.period = get_envelope_period(&gb->apu.sqr1);
+    apu->sqr1.frequency_sweep.period = get_sweep_period(&gb->apu.sqr1);
+    apu->sqr1.frequency_sweep.negate = BIT(gb->apu.sqr1.regs.nrx0, 3);
+    apu->sqr1.frequency_sweep.shift = get_sweep_shift(&gb->apu.sqr1);
+    apu->sqr1.frequency_sweep.is_active = true;
+    apu->sqr1.frequency_sweep.timer = gb->apu.sqr1.frequency_sweep.period;
+    apu->sqr1.frequency_sweep.shadow_frequency = get_frequency(&gb->apu.sqr1);
 
     // apu square2
-    gb->apu.sqr2.name = SQUARE2;
-    gb->apu.sqr2.is_active = false;
-    gb->apu.sqr2.regs.nrx1 = 0x3f;
-    gb->apu.sqr2.regs.nrx2 = 0x00;
-    gb->apu.sqr2.regs.nrx3 = 0xff;
-    gb->apu.sqr2.regs.nrx4 = 0xbf;
-    gb->apu.sqr2.is_dac_on = is_dac_on(&gb->apu.sqr2);
-    gb->apu.sqr2.length_counter = 0;
-    gb->apu.sqr2.timer = 0;
-    gb->apu.sqr2.fs_step = 0;
-    gb->apu.sqr2.left_chan_en = true;
-    gb->apu.sqr2.right_chan_en = true;
-    gb->apu.sqr2.env_add_mode = get_envelope_add_mode(&gb->apu.sqr2);
-    gb->apu.sqr2.volume = 0;
-    gb->apu.sqr2.wave_pos = 0;
-    gb->apu.sqr2.vol_env_period = get_envelope_period(&gb->apu.sqr2);
+    apu->sqr2.name = SQUARE2;
+    apu->sqr2.is_active = false;
+    apu->sqr2.regs.nrx1 = 0x3f;
+    apu->sqr2.regs.nrx2 = 0x00;
+    apu->sqr2.regs.nrx3 = 0xff;
+    apu->sqr2.regs.nrx4 = 0xbf;
+    apu->sqr2.is_dac_on = is_dac_on(&gb->apu.sqr2);
+    apu->sqr2.length_counter.counter = 0;
+    apu->sqr2.timer = 0;
+    apu->sqr2.frame_sequencer = 0;
+    apu->sqr2.left_chan_en = true;
+    apu->sqr2.right_chan_en = true;
+    apu->sqr2.volume_envelope.add_mode = get_envelope_add_mode(&gb->apu.sqr2);
+    apu->sqr2.volume = 0;
+    apu->sqr2.pos = 0;
+    apu->sqr2.volume_envelope.period = get_envelope_period(&gb->apu.sqr2);
 
     // apu wave
-    gb->apu.wave.name = WAVE;
-    gb->apu.wave.is_active = false;
-    gb->apu.wave.regs.nrx0 = 0x7f;
-    gb->apu.wave.regs.nrx1 = 0xff;
-    gb->apu.wave.regs.nrx2 = 0x9f;
-    gb->apu.wave.regs.nrx3 = 0xff;
-    gb->apu.wave.regs.nrx4 = 0xbf;
-    gb->apu.wave.is_dac_on = BIT(gb->apu.wave.regs.nrx0, 7);
+    apu->wave.name = WAVE;
+    apu->wave.is_active = false;
+    apu->wave.regs.nrx0 = 0x7f;
+    apu->wave.regs.nrx1 = 0xff;
+    apu->wave.regs.nrx2 = 0x9f;
+    apu->wave.regs.nrx3 = 0xff;
+    apu->wave.regs.nrx4 = 0xbf;
+    apu->wave.is_dac_on = BIT(gb->apu.wave.regs.nrx0, 7);
+    apu->wave.frame_sequencer = 0;
+    apu->wave.left_chan_en = true;
+    apu->wave.right_chan_en = false;
+    apu->wave.pos = 0;
+    apu->wave.is_dac_on = is_dac_on(&apu->wave);
 
     // apu noise
-    gb->apu.noise.name = NOISE;
-    gb->apu.wave.is_active = false;
-    gb->apu.noise.regs.nrx1 = 0xff;
-    gb->apu.noise.regs.nrx2 = 0x00;
-    gb->apu.noise.regs.nrx3 = 0x00;
-    gb->apu.noise.regs.nrx4 = 0xbf;
-    gb->apu.noise.is_dac_on = (gb->apu.noise.regs.nrx2 & 0xf8) != 0;
+    apu->noise.name = NOISE;
+    apu->noise.is_active = false;
+    apu->noise.regs.nrx1 = 0xff;
+    apu->noise.regs.nrx2 = 0x00;
+    apu->noise.regs.nrx3 = 0x00;
+    apu->noise.regs.nrx4 = 0xbf;
+    apu->noise.left_chan_en = true;
+    apu->noise.right_chan_en = false;
+    apu->noise.is_dac_on = is_dac_on(&gb->apu.noise);
+    apu->noise.clock_shift = get_noise_clock_shift(&gb->apu.noise);
+    apu->noise.divisor = get_noise_divisor(&gb->apu.noise);
+    apu->noise.width_mode = get_noise_width_mode(&gb->apu.noise);
+    apu->noise.timer = apu->noise.divisor << apu->noise.clock_shift;
+    apu->noise.volume = get_envelope_volume(&gb->apu.noise);
+    apu->noise.volume_envelope.add_mode = get_envelope_add_mode(&gb->apu.noise);
+    apu->noise.volume_envelope.period = get_envelope_period(&gb->apu.noise);
+    apu->noise.lfsr = 0x7fff;
 
     // apu global control
-    gb->apu.ctrl.name = CTRL;
-    gb->apu.ctrl.regs.nrx0 = 0x77;
-    gb->apu.ctrl.regs.nrx1 = 0xf3;
-    gb->apu.ctrl.regs.nrx2 = 0xf1;
+    apu->ctrl.name = CTRL;
+    apu->ctrl.regs.nrx0 = 0x77;
+    apu->ctrl.regs.nrx1 = 0xf3;
+    apu->ctrl.regs.nrx2 = 0xf1;
 
     // sound panning
-    gb->apu.noise.left_chan_en = true;
-    gb->apu.wave.left_chan_en = true;
-    gb->apu.sqr2.left_chan_en = true;
-    gb->apu.sqr1.left_chan_en = true;
-    gb->apu.noise.right_chan_en = false;
-    gb->apu.wave.right_chan_en = false;
-    gb->apu.sqr2.right_chan_en = true;
-    gb->apu.sqr1.right_chan_en = true;
+    apu->noise.left_chan_en = true;
+    apu->wave.left_chan_en = true;
+    apu->sqr2.left_chan_en = true;
+    apu->sqr1.left_chan_en = true;
+    apu->noise.right_chan_en = false;
+    apu->wave.right_chan_en = false;
+    apu->sqr2.right_chan_en = true;
+    apu->sqr1.right_chan_en = true;
 
-    gb->apu.sample_buffer.ptr = 0;
-    memset(gb->apu.sample_buffer.buf, 0, BUFFER_SIZE * sizeof(int16_t));
-    gb->apu.sample_buffer.is_full = false;
+    apu->sample_buffer.ptr = 0;
+    memset(apu->sample_buffer.buf, 0, BUFFER_SIZE * sizeof(int16_t));
+    apu->sample_buffer.is_full = false;
 }

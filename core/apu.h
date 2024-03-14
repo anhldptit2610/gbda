@@ -41,8 +41,10 @@ struct gb;
 #define APU_REG_NR51                0xff25          /* Left enables, Right enables */
 #define APU_REG_NR52                0xff26          /* Power control/status, Channel length statuses */
 
-void apu_write(struct gb *gb, uint16_t addr, uint8_t val);
-uint8_t apu_read(struct gb *gb, uint16_t addr);
+void apu_regs_write(struct gb *gb, uint16_t addr, uint8_t val);
+uint8_t apu_regs_read(struct gb *gb, uint16_t addr);
+void apu_ram_write(struct gb *gb, uint16_t addr, uint8_t val);
+uint8_t apu_ram_read(struct gb *gb, uint16_t addr);
 void apu_tick(struct gb *gb);
 
 /* frequency sweep helpers */
@@ -52,7 +54,6 @@ uint8_t get_sweep_shift(struct apu_channel *chan);
 
 /* square wave helpers */
 uint8_t get_square_duty_cycle(struct apu_channel *chan);
-uint8_t get_square_length_load(struct apu_channel *chan);
 bool is_length_counter_enable(struct apu_channel *chan);
 
 /* envelope function helpers */
@@ -63,10 +64,16 @@ uint8_t get_envelope_period(struct apu_channel *chan);
 /* frequency helpers */
 uint16_t get_frequency(struct apu_channel *chan);
 
+/* noise channel helpers */
+uint8_t get_noise_clock_shift(struct apu_channel *chan);
+bool get_noise_width_mode(struct apu_channel *chan);
+uint16_t get_noise_divisor(struct apu_channel *chan);
+
 /* dac helpers */
 bool is_dac_on(struct apu_channel *chan);
 
 /* other helpers */
+uint8_t get_length_load(struct apu_channel *chan);
 uint8_t get_register_num(uint16_t addr);
 struct apu_channel *get_channel_from_addr(struct gb *gb, uint16_t addr);
 float get_channel_amplitude(struct apu_channel *chan);
