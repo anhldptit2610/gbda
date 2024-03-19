@@ -198,7 +198,7 @@ float get_channel_amplitude(struct apu_channel *chan)
 {
     int dac_input = (chan->name != WAVE) ? chan->output * chan->volume : chan->output;
     //float dac_output = (is_dac_on(chan) && chan->is_active) ? (dac_input / 7.5) - 1.0 : 0.0;
-    float dac_output = (is_dac_on(chan)) ? (dac_input / 7.5) - 1.0 : 0.0;
+    float dac_output = (is_dac_on(chan) && chan->is_active) ? (dac_input / 7.5) - 1.0 : 0.0;
 
     return dac_output;
 }
@@ -326,7 +326,7 @@ void volume_envelope_tick(struct apu_channel *chan)
     if (!chan->volume_envelope.period) {
         // reload the period with value from NRx2
         chan->volume_envelope.period = get_envelope_period(chan);
-        new_volume = (get_envelope_add_mode(chan)) ? chan->volume - 1 : chan->volume + 1;
+        new_volume = (get_envelope_add_mode(chan)) ? chan->volume + 1 : chan->volume - 1;
         if (IN_RANGE(new_volume, 0, 15))
             chan->volume = new_volume;
     }
