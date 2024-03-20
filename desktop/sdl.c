@@ -52,6 +52,8 @@ void sdl_handle_input(struct sdl *sdl, struct gb *gb, bool *done)
             *done = true;
             if (gb->cart.infos.type == MBC1_RAM_BATTERY)
                 mbc1_ram_dump(gb);
+            else if (gb->cart.infos.type == MBC3_RAM_BATTERY)
+                mbc3_ram_dump(gb);
         }
     }
     key_state = SDL_GetKeyboardState(NULL);

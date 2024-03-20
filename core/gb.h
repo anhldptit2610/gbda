@@ -112,7 +112,8 @@ struct sm83 {
 };
 
 struct cartridge {
-    uint8_t rom[1 * MiB];
+    uint8_t rom[2 * MiB];
+    uint8_t ram[32 * KiB];
     bool cartridge_loaded;
     struct info {
         char name[17];
@@ -261,15 +262,24 @@ struct joypad {
     bool down;
 };
 
+struct mbc1{
+    bool ram_enable;
+    uint8_t rom_bank : 5;
+    uint8_t ram_bank : 2;
+    bool banking_mode;
+    bool has_battery;
+    uint8_t *ram;
+};
+
+struct mbc3 {
+    bool ram_enable;
+    uint8_t rom_bank : 7;
+    uint8_t ram_bank : 2;
+};
+
 struct mbc {
-    struct {
-        bool ram_enable;
-        uint8_t rom_bank_number : 5;
-        uint8_t ram_bank_number : 2;
-        bool banking_mode;
-        bool has_battery;
-        uint8_t *ram;
-    } mbc1;
+    struct mbc1 mbc1;
+    struct mbc3 mbc3;
 };
 
 struct apu_registers {

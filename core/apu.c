@@ -260,12 +260,12 @@ void generate_sample(struct gb *gb)
                         ((ch1->left_output) ? get_channel_amplitude(ch1) : 0.0) +
                         ((ch3->left_output) ? get_channel_amplitude(ch3) : 0.0) + 
                          ((ch4->left_output) ? get_channel_amplitude(ch4) : 0.0)) / 4.0;
-    left_mixer_output = left_mixer_output * (float)gb->apu.master_volume_right / 7.0 * ((float)gb->user_volume) / 7.0;
+    left_mixer_output = left_mixer_output * (float)gb->apu.master_volume_right / 7.0;
     right_mixer_output = (((ch2->right_output) ? get_channel_amplitude(ch2) : 0.0) + 
                          ((ch1->right_output) ? get_channel_amplitude(ch1) : 0.0) + 
                          ((ch3->right_output) ? get_channel_amplitude(ch3) : 0.0) + 
                           ((ch4->right_output) ? get_channel_amplitude(ch4) : 0.0)) / 4.0;
-    right_mixer_output = right_mixer_output * (float)gb->apu.master_volume_right / 7.0 * ((float)gb->user_volume) / 7.0;
+    right_mixer_output = right_mixer_output * (float)gb->apu.master_volume_right / 7.0;
     gb->apu.sample_buffer.buf[gb->apu.sample_buffer.ptr] = (int16_t)(left_mixer_output * 32767.0f);
     gb->apu.sample_buffer.buf[gb->apu.sample_buffer.ptr + 1] = (int16_t)(right_mixer_output * 32767.0f);
     gb->apu.sample_buffer.ptr += 2;

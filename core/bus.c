@@ -53,6 +53,9 @@ void exram_write(struct gb *gb, uint16_t addr, uint8_t val)
     case MBC1_RAM_BATTERY:
         mbc1_ram_write(gb, addr, val);
         break;
+    case MBC3_RAM_BATTERY:
+        mbc3_write(gb, addr, val);
+        break;
     default:
         break;
     }
@@ -116,6 +119,9 @@ uint8_t exram_read(struct gb *gb, uint16_t addr)
     case MBC1_RAM:
     case MBC1_RAM_BATTERY:
         ret = mbc1_ram_read(gb, addr);
+        break;
+    case MBC3_RAM_BATTERY:
+        ret = mbc3_read(gb, addr);
         break;
     default:
         ret = 0xff;
@@ -209,10 +215,6 @@ uint8_t (*read_function[])(struct gb *gb, uint16_t addr) = {
     [HRAM] = hram_read,
 };
 
-void bus_wait(struct gb *gb)
-{
-}
-
 uint8_t bus_read(struct gb *gb, uint16_t addr)
 {
     return read_function[bus_get_mem_region(addr)](gb, addr);
@@ -226,4 +228,5 @@ uint8_t dma_get_data(struct gb *gb, uint16_t addr)
 void bus_write(struct gb *gb, uint16_t addr, uint8_t val)
 {
     write_function[bus_get_mem_region(addr)](gb, addr, val);
+
 }

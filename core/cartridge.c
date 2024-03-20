@@ -65,6 +65,7 @@ uint8_t (*read_func[])(struct gb *gb, uint16_t addr) = {
     [MBC1] = mbc1_read,
     [MBC1_RAM] = mbc1_read,
     [MBC1_RAM_BATTERY] = mbc1_read,
+    [MBC3_RAM_BATTERY] = mbc3_read,
 };
 
 void (*write_func[])(struct gb *gb, uint16_t addr, uint8_t val) = {
@@ -72,6 +73,7 @@ void (*write_func[])(struct gb *gb, uint16_t addr, uint8_t val) = {
     [MBC1] = mbc1_write,
     [MBC1_RAM] = mbc1_write,
     [MBC1_RAM_BATTERY] = mbc1_write,
+    [MBC3_RAM_BATTERY] = mbc3_write,
 };
 
 void cartridge_get_infos(struct gb *gb)
@@ -125,6 +127,7 @@ void cartridge_load(struct gb *gb, char *cartridge_path)
         printf("cartridge loaded\n");
         gb->cart.cartridge_loaded = true;
         cartridge_get_infos(gb);
+        cartridge_print_info(gb);
         mbc_init(gb);
     }
 
@@ -146,7 +149,7 @@ uint8_t rom_read(struct gb *gb, uint16_t addr)
 {
     uint8_t ret = 0xff;
 
-    ret = (gb->cart.infos.bank_size == 2) ? no_mbc_read(gb, addr) : read_func[gb->cart.infos.type](gb, addr);
+    ret = read_func[gb->cart.infos.type](gb, addr);
     return ret;
 }
 
@@ -224,12 +227,18 @@ void load_state_after_booting(struct gb *gb)
     joypad->right = 1;
     joypad->joyp.val = 0xcf;
 
-    // mbcs
+    // mbc1
     mbc->mbc1.ram_enable = 0;
     mbc->mbc1.banking_mode = 0;
-    mbc->mbc1.rom_bank_number = 0;
-    mbc->mbc1.ram_bank_number = 0;
+    mbc->mbc1.rom_bank = 0;
+    mbc->mbc1.ram_bank = 0;
     mbc->mbc1.has_battery = false;
+
+    // mbc3
+    mbc->mbc3.ram_enable = false;
+    mbc->mbc3.rom_bank = 0;
+    mbc->mbc3.ram_bank = 0;
+
 
 
     // TODO: update each channel after booting status 

@@ -168,7 +168,6 @@ static inline void ld_indirect_nn_sp(struct gb *gb, uint16_t nn)
 
 static inline void push_rr(struct gb *gb, uint16_t rr)
 {
-    bus_wait(gb);
     sm83_push_word(gb, rr);
 }
 
@@ -176,7 +175,6 @@ static inline void ld_hl_sp_plus_i8(struct gb *gb, uint8_t i8)
 {
     uint16_t carry_per_bit = (gb->cpu.sp + i8) ^ gb->cpu.sp ^ i8;
 
-    bus_wait(gb);
     gb->cpu.hl.val = gb->cpu.sp + (int8_t)i8;
     gb->cpu.af.flag.z = 0;
     gb->cpu.af.flag.n = 0;
@@ -312,13 +310,11 @@ static inline void cpl(struct gb *gb)
 
 void inc_rr(struct gb *gb, uint16_t *rr)
 {
-    bus_wait(gb);
     *rr += 1; 
 }
 
 void dec_rr(struct gb *gb, uint16_t *rr)
 {
-    bus_wait(gb);
     *rr -= 1; 
 }
 
@@ -327,7 +323,6 @@ void add_hl_rr(struct gb *gb, uint16_t rr)
     uint32_t res = gb->cpu.hl.val + rr;
     uint32_t carry_per_bit = res ^ gb->cpu.hl.val ^ rr;
 
-    bus_wait(gb);
     gb->cpu.hl.val = res;
     gb->cpu.af.flag.n = 0;
     gb->cpu.af.flag.h = BIT(carry_per_bit, 12);
@@ -338,8 +333,6 @@ void add_sp_i8(struct gb *gb, uint8_t i8)
 {
     uint16_t carry_per_bit = (gb->cpu.sp + i8) ^ gb->cpu.sp ^ i8;
 
-    bus_wait(gb);
-    bus_wait(gb);
     gb->cpu.sp = gb->cpu.sp + (int8_t)i8;
     gb->cpu.af.flag.z = gb->cpu.af.flag.n = 0;
     gb->cpu.af.flag.h = BIT(carry_per_bit, 4);
@@ -1144,7 +1137,7 @@ int sm83_step(struct gb *gb)
     case 0xf6: or(gb, sm83_fetch_byte(gb));                             break;
     case 0xf7: rst_n(gb, 0x30);                                         break;
     case 0xf8: ld_hl_sp_plus_i8(gb, sm83_fetch_byte(gb));               break;
-    case 0xf9: gb->cpu.sp = gb->cpu.hl.val; bus_wait(gb);         break;
+    case 0xf9: gb->cpu.sp = gb->cpu.hl.val;         break;
     case 0xfa: gb->cpu.af.a = bus_read(gb, sm83_fetch_word(gb));      break;
     case 0xfb: ei(gb);                                                  break;
     case 0xfe: cp(gb, sm83_fetch_byte(gb));                             break;
