@@ -234,6 +234,7 @@ void load_state_after_booting(struct gb *gb)
     //       when implementing them. 
 
     apu->tick = 0;
+    apu->frame_sequencer = 0;
 
     // apu square1
     apu->sqr1.name = SQUARE1;
@@ -244,11 +245,10 @@ void load_state_after_booting(struct gb *gb)
     apu->sqr1.regs.nrx3 = 0xff;
     apu->sqr1.regs.nrx4 = 0xbf;
     apu->sqr1.is_dac_on = is_dac_on(&gb->apu.sqr1);
-    apu->sqr1.length_counter.counter = get_length_load(&gb->apu.sqr1);
+    apu->sqr1.length.counter = get_length_load(&gb->apu.sqr1);
     apu->sqr1.timer = get_frequency(&gb->apu.sqr1);
-    apu->sqr1.frame_sequencer = 0;
-    apu->sqr1.left_chan_en = true;
-    apu->sqr1.right_chan_en = true;
+    apu->sqr1.left_output = true;
+    apu->sqr1.right_output = true;
     apu->sqr1.volume_envelope.add_mode = get_envelope_add_mode(&gb->apu.sqr1);
     apu->sqr1.volume = 15;
     apu->sqr1.pos = 0;
@@ -268,11 +268,10 @@ void load_state_after_booting(struct gb *gb)
     apu->sqr2.regs.nrx3 = 0xff;
     apu->sqr2.regs.nrx4 = 0xbf;
     apu->sqr2.is_dac_on = is_dac_on(&gb->apu.sqr2);
-    apu->sqr2.length_counter.counter = 0;
+    apu->sqr2.length.counter = 0;
     apu->sqr2.timer = 0;
-    apu->sqr2.frame_sequencer = 0;
-    apu->sqr2.left_chan_en = true;
-    apu->sqr2.right_chan_en = true;
+    apu->sqr2.left_output = true;
+    apu->sqr2.right_output = true;
     apu->sqr2.volume_envelope.add_mode = get_envelope_add_mode(&gb->apu.sqr2);
     apu->sqr2.volume = 0;
     apu->sqr2.pos = 0;
@@ -287,9 +286,8 @@ void load_state_after_booting(struct gb *gb)
     apu->wave.regs.nrx3 = 0xff;
     apu->wave.regs.nrx4 = 0xbf;
     apu->wave.is_dac_on = BIT(gb->apu.wave.regs.nrx0, 7);
-    apu->wave.frame_sequencer = 0;
-    apu->wave.left_chan_en = true;
-    apu->wave.right_chan_en = false;
+    apu->wave.left_output = true;
+    apu->wave.right_output = false;
     apu->wave.pos = 0;
     apu->wave.is_dac_on = is_dac_on(&apu->wave);
 
@@ -300,17 +298,17 @@ void load_state_after_booting(struct gb *gb)
     apu->noise.regs.nrx2 = 0x00;
     apu->noise.regs.nrx3 = 0x00;
     apu->noise.regs.nrx4 = 0xbf;
-    apu->noise.left_chan_en = true;
-    apu->noise.right_chan_en = false;
+    apu->noise.left_output = true;
+    apu->noise.right_output = false;
     apu->noise.is_dac_on = is_dac_on(&gb->apu.noise);
-    apu->noise.clock_shift = get_noise_clock_shift(&gb->apu.noise);
-    apu->noise.divisor = get_noise_divisor(&gb->apu.noise);
-    apu->noise.width_mode = get_noise_width_mode(&gb->apu.noise);
-    apu->noise.timer = apu->noise.divisor << apu->noise.clock_shift;
+    apu->noise.lfsr.clock_shift = get_noise_clock_shift(&gb->apu.noise);
+    apu->noise.lfsr.divisor = get_noise_divisor(&gb->apu.noise);
+    apu->noise.lfsr.width_mode = get_noise_width_mode(&gb->apu.noise);
+    apu->noise.timer = apu->noise.lfsr.divisor << apu->noise.lfsr.clock_shift;
     apu->noise.volume = get_envelope_volume(&gb->apu.noise);
     apu->noise.volume_envelope.add_mode = get_envelope_add_mode(&gb->apu.noise);
     apu->noise.volume_envelope.period = get_envelope_period(&gb->apu.noise);
-    apu->noise.lfsr = 0x7fff;
+    apu->noise.lfsr.reg = 0x7fff;
 
     // apu global control
     apu->ctrl.name = CTRL;
@@ -319,14 +317,14 @@ void load_state_after_booting(struct gb *gb)
     apu->ctrl.regs.nrx2 = 0xf1;
 
     // sound panning
-    apu->noise.left_chan_en = true;
-    apu->wave.left_chan_en = true;
-    apu->sqr2.left_chan_en = true;
-    apu->sqr1.left_chan_en = true;
-    apu->noise.right_chan_en = false;
-    apu->wave.right_chan_en = false;
-    apu->sqr2.right_chan_en = true;
-    apu->sqr1.right_chan_en = true;
+    apu->noise.left_output = true;
+    apu->wave.left_output = true;
+    apu->sqr2.left_output = true;
+    apu->sqr1.left_output = true;
+    apu->noise.right_output = false;
+    apu->wave.right_output = false;
+    apu->sqr2.right_output = true;
+    apu->sqr1.right_output = true;
 
     apu->sample_buffer.ptr = 0;
     memset(apu->sample_buffer.buf, 0, BUFFER_SIZE * sizeof(int16_t));

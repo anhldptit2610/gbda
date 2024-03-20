@@ -300,10 +300,19 @@ struct frequency_sweep {
 };
 
 struct lfsr {
-    uint16_t lfsr;
+    uint16_t reg;
     uint8_t clock_shift : 4;
     bool width_mode;
-    uint8_t divisor : 3;
+    uint32_t divisor;
+};
+
+struct square {
+    uint8_t duty_cycle : 2;
+};
+
+struct wave {
+    uint8_t pos;
+    uint8_t volume_code : 2;
 };
 
 struct apu_channel {
@@ -312,19 +321,14 @@ struct apu_channel {
     bool is_active;
     bool is_dac_on;
     uint32_t timer;
-    bool left_chan_en;
-    bool right_chan_en;
+    bool left_output;
+    bool right_output;
     uint8_t volume;
     uint8_t output;
-    uint8_t frame_sequencer : 3;
-    struct length_counter length_counter;
+    struct length_counter length;
     struct volume_envelope volume_envelope;
     struct frequency_sweep frequency_sweep;
-    /* Noise channel fields */
-    uint16_t lfsr;
-    uint8_t clock_shift : 4;
-    bool width_mode;
-    uint32_t divisor;
+    struct lfsr lfsr;
     /* square channels fields */
     uint8_t pos;
     uint8_t duty_cycle : 2;
@@ -341,6 +345,7 @@ struct apu {
     struct apu_channel sqr2;
     struct apu_channel wave;
     struct apu_channel noise;
+    uint8_t frame_sequencer : 3;
     struct {
         int16_t buf[BUFFER_SIZE];
         int ptr;
