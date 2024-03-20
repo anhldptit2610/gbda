@@ -1,10 +1,5 @@
 #include "sdl.h"
 
-int16_t voltage_to_sample(float voltage) {
-    // Scale the voltage level to fit within the range of int16_t
-    return (int16_t)(voltage * 32767.0f);
-}
-
 void sdl_init(struct sdl *sdl, int scaler)
 {
     if (SDL_Init(SDL_INIT_EVERYTHING) != 0) {
@@ -60,6 +55,7 @@ void sdl_handle_input(struct sdl *sdl, struct gb *gb, bool *done)
         }
     }
     key_state = SDL_GetKeyboardState(NULL);
+
     if (key_state[SDL_SCANCODE_Z] && gb->joypad.b)
         joypad_press_button(gb, JOYPAD_B);
     else if (key_state[SDL_SCANCODE_X] && gb->joypad.a)

@@ -374,4 +374,6 @@ struct gb {
     struct apu apu;
     int screen_scaler;
     int executed_cycle;
+    int user_volume;
+    bool volume_set;
 };

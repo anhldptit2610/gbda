@@ -163,6 +163,8 @@ void load_state_after_booting(struct gb *gb)
     struct apu *apu = &gb->apu;
 
     gb->mode = NORMAL;
+    if (!gb->volume_set)
+        gb->user_volume = 7;
 
     // cpu
     cpu->pc = 0x100;

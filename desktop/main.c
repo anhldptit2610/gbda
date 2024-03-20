@@ -20,9 +20,14 @@ void gb_init(struct gb *gb, int argc, char *argv[])
     }
 
     gb->screen_scaler = 0;
+    gb->volume_set = false;
     sm83_init(gb);
-    while ((opt = getopt(argc, argv, "r:s:")) != -1) {
+    while ((opt = getopt(argc, argv, "r:s:v:")) != -1) {
         switch (opt) {
+        case 'v':
+            gb->user_volume = atoi(optarg) & 0x7;
+            gb->volume_set = true;
+            break;
         case 'r':
             cartridge_load(gb, optarg);
             break;
@@ -47,15 +52,6 @@ int main(int argc, char *argv[])
 
     gb_init(&gb, argc, argv);
     sdl_init(&sdl, gb.screen_scaler);
-    // while (!done) {
-    //     sdl_handle_input(&sdl, &gb, &done);
-    //     while (!gb.ppu.frame_ready) {
-    //         cycles = sm83_step(&gb);
-    //         sm83_cycle(&gb, cycles);
-    //     }
-    //     gb.ppu.frame_ready = false;
-    //     sdl_render(&sdl, &gb);
-    // }
     while (!done) {
         while (!gb.apu.sample_buffer.is_full && !done) {
             cycles = sm83_step(&gb);
